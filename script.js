@@ -1,6 +1,6 @@
 // https://itchampclub.medium.com/linebot-google-apps-script-บันทึกเวลาทำงาน-เข้า-ออก-ac2a85a53f02
 const liffId = "2000143615-Bq4Xa4en";
-const xurl = "https://script.google.com/macros/s/AKfycbx_TbjC7f3L0vZ-Dy_7qsaMGUNPnjufwFEdgnRd-a1XJaF46OtMDZG0XxfzipYtvwa_JA/exec";
+const xurl = "https://script.google.com/macros/s/AKfycbxWf-qIGzkoC0ajwDC9aI0FjhQ7LKG1-8Z4fEdSJMFzQFlKRLeQvc5kj2Vx1gwzycWP7Q/exec";
 
 // Initialize when document is ready
 $(document).ready(() => {
