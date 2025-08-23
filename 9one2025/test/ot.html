@@ -1,1 +1,3243 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบบันทึกการทำโอที</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Sarabun', sans-serif; }
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); }
+        .calendar-day { aspect-ratio: 1; }
+        .loading-spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-lg border-b-4 border-blue-500">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex justify-between items-center py-4">
+                <div class="flex items-center space-x-4">
+                    <div class="bg-blue-500 text-white p-2 rounded-lg">
+                        <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                    </div>
+                    <h1 class="text-2xl font-bold text-gray-800">ระบบบันทึกการทำโอที</h1>
+                </div>
+                <div class="flex space-x-2">
+                    <button onclick="showPage('register')" class="nav-btn bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors">
+                        ลงทะเบียนพนักงาน
+                    </button>
+                    <button onclick="showPage('admin')" class="nav-btn bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg transition-colors">
+                        ตั้งค่าแอดมิน
+                    </button>
+                    <button onclick="showPage('data')" class="nav-btn bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors">
+                        แสดงข้อมูล
+                    </button>
+                    <button onclick="showPage('entry')" class="nav-btn bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg transition-colors">
+                        บันทึกโอที
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Employee Registration Page -->
+    <div id="register-page" class="page-content max-w-2xl mx-auto mt-8 p-6">
+        <div class="bg-white rounded-xl shadow-lg p-8">
+            <h2 class="text-3xl font-bold text-gray-800 mb-6 text-center">ลงทะเบียนพนักงาน</h2>
+            <form id="employee-form" class="space-y-6">
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">รหัสพนักงาน (8 หลัก)</label>
+                    <input type="text" id="emp-id" maxlength="8" pattern="[0-9]{8}" 
+                           class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none transition-colors"
+                           placeholder="12345678" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">ชื่อ-นามสกุล</label>
+                    <input type="text" id="emp-name" 
+                           class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none transition-colors"
+                           placeholder="นายสมชาย ใจดี" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">แผนก</label>
+                    <select id="emp-department" 
+                            class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none transition-colors" required>
+                        <option value="">เลือกแผนก</option>
+                        <option value="production">ฝ่ายผลิต</option>
+                        <option value="quality">ฝ่ายควบคุมคุณภาพ</option>
+                        <option value="maintenance">ฝ่ายซ่อมบำรุง</option>
+                        <option value="warehouse">ฝ่ายคลังสินค้า</option>
+                        <option value="admin">ฝ่ายบริหาร</option>
+                    </select>
+                </div>
+                <button type="submit" class="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-3 px-6 rounded-lg transition-colors">
+                    ลงทะเบียน
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Admin Settings Page -->
+    <div id="admin-page" class="page-content max-w-4xl mx-auto mt-8 p-6 hidden">
+        <div class="bg-white rounded-xl shadow-lg p-8">
+            <h2 class="text-3xl font-bold text-gray-800 mb-6 text-center">ตั้งค่าแอดมิน</h2>
+            
+            <!-- Connection Status -->
+            <div id="connection-status" class="mb-6 p-4 rounded-lg bg-gray-50">
+                <h3 class="text-lg font-semibold mb-2">สถานะการเชื่อมต่อ</h3>
+                <div class="flex items-center space-x-2">
+                    <div id="status-indicator" class="w-3 h-3 rounded-full bg-gray-400"></div>
+                    <span id="status-text">ยังไม่ได้ตั้งค่า URL</span>
+                </div>
+            </div>
+
+            <!-- Google Sheets Integration -->
+            <div class="mb-8">
+                <h3 class="text-xl font-semibold text-gray-700 mb-4">การเชื่อมต่อ Google Sheets</h3>
+                
+                <!-- Connection Settings -->
+                <div class="bg-gray-50 p-4 rounded-lg mb-6">
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">URL Google Apps Script</label>
+                    <input type="url" id="gas-url" 
+                           class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                           placeholder="https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec">
+                    <p class="text-sm text-gray-600 mt-2">ใส่ URL ของ Google Apps Script ที่เชื่อมต่อกับ Google Sheets</p>
+                    <div class="flex gap-2 mt-3 flex-wrap">
+                        <button onclick="testConnection()" class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600">
+                            ทดสอบการเชื่อมต่อ
+                        </button>
+                        <button onclick="showAppsScriptCode()" class="bg-purple-500 text-white px-4 py-2 rounded-lg hover:bg-purple-600">
+                            ดู Apps Script Code
+                        </button>
+                        <button onclick="syncWithGoogleSheets()" class="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600">
+                            ซิงค์ข้อมูล
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Holiday Sync Controls -->
+                <div class="bg-blue-50 p-4 rounded-lg">
+                    <h4 class="text-lg font-semibold mb-3 text-blue-800">การซิงค์วันหยุดกับ Google Sheets</h4>
+                    <div class="grid md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">ปีที่ต้องการซิงค์</label>
+                            <select id="sync-year" class="w-full px-3 py-2 border rounded-lg">
+                                <option value="2024">2024</option>
+                                <option value="2025">2025</option>
+                                <option value="2026">2026</option>
+                                <option value="2027">2027</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">เลือกการดำเนินการ</label>
+                            <select id="sync-action" class="w-full px-3 py-2 border rounded-lg">
+                                <option value="download">ดาวน์โหลดจาก Google Sheets</option>
+                                <option value="upload">อัปโหลดไป Google Sheets</option>
+                                <option value="sync">ซิงค์แบบสองทาง</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="flex gap-2 flex-wrap">
+                        <button onclick="syncHolidaysWithGoogleSheets()" class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600">
+                            เริ่มซิงค์วันหยุด
+                        </button>
+                        <button onclick="viewGoogleSheetsHolidays()" class="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600">
+                            ดูข้อมูลใน Google Sheets
+                        </button>
+                    </div>
+                    
+                    <!-- Sync Status -->
+                    <div id="sync-status" class="mt-4 p-3 rounded-lg bg-white border hidden">
+                        <div class="flex items-center">
+                            <div id="sync-indicator" class="w-3 h-3 rounded-full bg-gray-400 mr-2"></div>
+                            <span id="sync-text">พร้อมซิงค์</span>
+                        </div>
+                        <div id="sync-details" class="text-sm text-gray-600 mt-2"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Holiday Settings -->
+            <div class="mb-8">
+                <h3 class="text-xl font-semibold text-gray-700 mb-4">ตั้งค่าวันหยุดทั้งปี</h3>
+                
+                <!-- Year and Month Selection -->
+                <div class="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">เลือกปี</label>
+                        <select id="holiday-year" onchange="updateCurrentYear()" class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none">
+                            <option value="2024">2024</option>
+                            <option value="2025">2025</option>
+                            <option value="2026">2026</option>
+                            <option value="2027">2027</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">เลือกเดือนที่ต้องการตั้งค่า</label>
+                        <select id="holiday-month" onchange="loadMonthHolidays()" class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none">
+                            <option value="">เลือกเดือน</option>
+                            <option value="1">มกราคม</option>
+                            <option value="2">กุมภาพันธ์</option>
+                            <option value="3">มีนาคม</option>
+                            <option value="4">เมษายน</option>
+                            <option value="5">พฤษภาคม</option>
+                            <option value="6">มิถุนายน</option>
+                            <option value="7">กรกฎาคม</option>
+                            <option value="8">สิงหาคม</option>
+                            <option value="9">กันยายน</option>
+                            <option value="10" selected>ตุลาคม</option>
+                            <option value="11">พฤศจิกายน</option>
+                            <option value="12">ธันวาคม</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Holiday Configuration for Selected Month -->
+                <div id="month-holiday-config" class="hidden">
+                    <div class="bg-gray-50 p-6 rounded-lg">
+                        <h4 class="text-lg font-semibold mb-4">ตั้งค่าวันหยุดสำหรับเดือน <span id="selected-month-name"></span></h4>
+                        
+                        <!-- Saturday Holidays -->
+                        <div class="mb-6">
+                            <h5 class="font-semibold mb-3 text-red-700">วันหยุดเสาร์ (เลือกเสาร์ที่เป็นวันหยุด)</h5>
+                            <div id="saturday-options" class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                <!-- Saturday options will be populated here -->
+                            </div>
+                        </div>
+
+                        <!-- Calendar View -->
+                        <div class="mb-6">
+                            <h5 class="font-semibold mb-3 text-green-700">ปฏิทินเดือน (คลิกเพื่อเลือกวันหยุดพิเศษ)</h5>
+                            <div id="month-calendar" class="bg-white p-4 rounded-lg border">
+                                <!-- Calendar will be generated here -->
+                            </div>
+                        </div>
+
+                        <!-- Special Holidays List -->
+                        <div class="mb-4">
+                            <h5 class="font-semibold mb-3 text-purple-700">วันหยุดพิเศษที่เลือก</h5>
+                            <div id="month-special-holidays" class="min-h-[60px] bg-white p-3 rounded-lg border">
+                                <p class="text-gray-500 text-sm">ยังไม่มีวันหยุดพิเศษ</p>
+                            </div>
+                        </div>
+
+                        <!-- Save Button -->
+                        <button onclick="saveMonthHolidays()" class="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-lg transition-colors">
+                            บันทึกวันหยุดเดือนนี้
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Summary of All Holidays -->
+                <div class="mt-8">
+                    <h4 class="text-lg font-semibold mb-4 text-gray-700">สรุปวันหยุดทั้งปี</h4>
+                    <div id="yearly-holiday-summary" class="bg-blue-50 p-4 rounded-lg">
+                        <p class="text-gray-600">เลือกเดือนเพื่อดูและแก้ไขวันหยุด</p>
+                    </div>
+                </div>
+            </div>
+
+            <button onclick="saveAdminSettings()" class="w-full bg-purple-500 hover:bg-purple-600 text-white font-semibold py-3 px-6 rounded-lg transition-colors">
+                บันทึกการตั้งค่า
+            </button>
+        </div>
+    </div>
+
+    <!-- Data Display Page -->
+    <div id="data-page" class="page-content max-w-6xl mx-auto mt-8 p-6 hidden">
+        <div class="bg-white rounded-xl shadow-lg p-8">
+            <h2 class="text-3xl font-bold text-gray-800 mb-6 text-center">แสดงข้อมูลโอที</h2>
+            
+            <!-- Filter Controls -->
+            <div class="mb-6 flex flex-wrap gap-4 items-center">
+                <select id="filter-month" class="px-4 py-2 border rounded-lg">
+                    <option value="">เลือกเดือน</option>
+                    <option value="1">มกราคม</option>
+                    <option value="2">กุมภาพันธ์</option>
+                    <option value="3">มีนาคม</option>
+                    <option value="4">เมษายน</option>
+                    <option value="5">พฤษภาคม</option>
+                    <option value="6">มิถุนายน</option>
+                    <option value="7">กรกฎาคม</option>
+                    <option value="8">สิงหาคม</option>
+                    <option value="9">กันยายน</option>
+                    <option value="10">ตุลาคม</option>
+                    <option value="11">พฤศจิกายน</option>
+                    <option value="12">ธันวาคม</option>
+                </select>
+                <input type="text" id="filter-emp-id" placeholder="รหัสพนักงาน" class="px-4 py-2 border rounded-lg">
+                <button onclick="filterData()" class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600">
+                    ค้นหา
+                </button>
+                <button onclick="loadAllData()" class="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600">
+                    แสดงทั้งหมด
+                </button>
+                <button onclick="syncWithGoogleSheets()" class="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600">
+                    ซิงค์กับ Google Sheets
+                </button>
+                
+                <!-- Auto-refresh indicator -->
+                <div class="flex items-center ml-auto">
+                    <div id="auto-refresh-indicator" class="flex items-center text-sm text-gray-600">
+                        <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse mr-2"></div>
+                        <span>อัปเดตอัตโนมัติ</span>
+                    </div>
+                    <div id="last-update" class="text-xs text-gray-500 ml-4">
+                        อัปเดตล่าสุด: <span id="last-update-time">-</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Employee OT Summary -->
+            <div id="employee-ot-summary" class="hidden mb-6">
+                <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-6">
+                    <h3 class="text-lg font-semibold text-blue-800 mb-4 flex items-center">
+                        <svg class="w-6 h-6 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"/>
+                        </svg>
+                        สรุปโอทีพนักงาน
+                    </h3>
+                    
+                    <div class="grid md:grid-cols-2 gap-6">
+                        <!-- Employee Info -->
+                        <div class="bg-white p-4 rounded-lg border border-blue-100">
+                            <h4 class="font-semibold text-gray-700 mb-3">ข้อมูลพนักงาน</h4>
+                            <div class="space-y-2 text-sm">
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">รหัสพนักงาน:</span>
+                                    <span id="summary-emp-id" class="font-semibold text-blue-700"></span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">ชื่อ-นามสกุล:</span>
+                                    <span id="summary-emp-name" class="font-semibold text-blue-700"></span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">แผนก:</span>
+                                    <span id="summary-emp-department" class="font-semibold text-blue-700"></span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">จำนวนวันทำโอที:</span>
+                                    <span id="summary-work-days" class="font-semibold text-purple-600"></span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- OT Summary -->
+                        <div class="bg-white p-4 rounded-lg border border-blue-100">
+                            <h4 class="font-semibold text-gray-700 mb-3">สรุปโอทีเดือนนี้</h4>
+                            <div class="space-y-3">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-gray-600">โอทีวันหยุด:</span>
+                                    <span id="summary-holiday-ot" class="font-semibold text-red-600"></span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-gray-600">โอทีพิเศษ:</span>
+                                    <span id="summary-extra-ot" class="font-semibold text-orange-600"></span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-gray-600">โอทีปกติ:</span>
+                                    <span id="summary-regular-ot" class="font-semibold text-green-600"></span>
+                                </div>
+                                <div class="border-t pt-2">
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-gray-700 font-semibold">รวมโอทีทั้งหมด:</span>
+                                        <span id="summary-total-ot" class="font-bold text-purple-700 text-lg"></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- OT Status and Warning -->
+                    <div class="mt-4">
+                        <div id="ot-status-normal" class="hidden bg-green-50 border border-green-200 rounded-lg p-4">
+                            <div class="flex items-center">
+                                <svg class="w-5 h-5 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"/>
+                                </svg>
+                                <span class="text-green-700 font-semibold">สถานะปกติ</span>
+                            </div>
+                            <div class="mt-2 text-sm text-green-600">
+                                <div>ยังสามารถทำโอทีได้อีก: <span id="remaining-hours" class="font-semibold"></span> ชั่วโมง</div>
+                                <div class="text-xs text-gray-500 mt-1">* ขีดจำกัดโอที 80 ชั่วโมงต่อเดือน</div>
+                            </div>
+                        </div>
+                        
+                        <div id="ot-status-warning" class="hidden bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                            <div class="flex items-center">
+                                <svg class="w-5 h-5 text-yellow-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"/>
+                                </svg>
+                                <span class="text-yellow-700 font-semibold">เตือน: ใกล้เกินขีดจำกัด</span>
+                            </div>
+                            <div class="mt-2 text-sm text-yellow-600">
+                                <div>ยังสามารถทำโอทีได้อีก: <span id="remaining-hours-warning" class="font-semibold"></span> ชั่วโมง</div>
+                                <div class="text-xs text-gray-500 mt-1">* โอทีเกิน 70 ชั่วโมงแล้ว กรุณาระวัง</div>
+                            </div>
+                        </div>
+                        
+                        <div id="ot-status-danger" class="hidden bg-red-50 border border-red-200 rounded-lg p-4">
+                            <div class="flex items-center">
+                                <svg class="w-5 h-5 text-red-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"/>
+                                </svg>
+                                <span class="text-red-700 font-semibold">เกินขีดจำกัด!</span>
+                            </div>
+                            <div class="mt-2 text-sm text-red-600">
+                                <div>เกินขีดจำกัดแล้ว: <span id="exceeded-hours" class="font-semibold"></span> ชั่วโมง</div>
+                                <div class="text-xs text-gray-500 mt-1">* ห้ามทำโอทีเกิน 80 ชั่วโมงต่อเดือน</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Calculation Summary -->
+            <div id="calculation-summary" class="mb-6 bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-6">
+                <h3 class="text-lg font-semibold text-purple-800 mb-4 flex items-center">
+                    <svg class="w-6 h-6 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    สรุปการคำนวณ
+                </h3>
+                
+                <div class="grid md:grid-cols-4 gap-6">
+                    <!-- Total Records -->
+                    <div class="bg-white p-4 rounded-lg border border-purple-100 text-center">
+                        <div class="text-2xl font-bold text-purple-600" id="total-records">0</div>
+                        <div class="text-sm text-gray-600 mt-1">รวมทั้งหมด</div>
+                        <div class="text-xs text-gray-500">รายการ</div>
+                    </div>
+                    
+                    <!-- Total OT Hours -->
+                    <div class="bg-white p-4 rounded-lg border border-blue-100 text-center">
+                        <div class="text-2xl font-bold text-blue-600" id="total-ot-hours">0.0</div>
+                        <div class="text-sm text-gray-600 mt-1">ชั่วโมงโอทีรวม</div>
+                        <div class="text-xs text-gray-500">ชั่วโมง</div>
+                    </div>
+                    
+                    <!-- Monthly OT -->
+                    <div class="bg-white p-4 rounded-lg border border-green-100 text-center">
+                        <div class="text-2xl font-bold text-green-600" id="monthly-ot-hours">0.0</div>
+                        <div class="text-sm text-gray-600 mt-1">โอทีเดือนนี้</div>
+                        <div class="text-xs text-gray-500">ชั่วโมง</div>
+                    </div>
+                    
+                    <!-- Employees Exceeding Limit -->
+                    <div class="bg-white p-4 rounded-lg border border-red-100 text-center">
+                        <div class="text-2xl font-bold text-red-600" id="exceeding-employees">0</div>
+                        <div class="text-sm text-gray-600 mt-1">เกินกำหนด</div>
+                        <div class="text-xs text-gray-500">คน</div>
+                    </div>
+                </div>
+                
+                <!-- Detailed Breakdown -->
+                <div class="mt-6 grid md:grid-cols-3 gap-4">
+                    <!-- OT Type Breakdown -->
+                    <div class="bg-white p-4 rounded-lg border border-gray-100">
+                        <h4 class="font-semibold text-gray-700 mb-3">แยกประเภทโอที</h4>
+                        <div class="space-y-2 text-sm">
+                            <div class="flex justify-between">
+                                <span class="text-red-600">โอทีวันหยุด:</span>
+                                <span id="total-holiday-ot" class="font-semibold text-red-600">0.0 ชม.</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-orange-600">โอทีพิเศษ:</span>
+                                <span id="total-extra-ot" class="font-semibold text-orange-600">0.0 ชม.</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-green-600">โอทีปกติ:</span>
+                                <span id="total-regular-ot" class="font-semibold text-green-600">0.0 ชม.</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Employee Statistics -->
+                    <div class="bg-white p-4 rounded-lg border border-gray-100">
+                        <h4 class="font-semibold text-gray-700 mb-3">สถิติพนักงาน</h4>
+                        <div class="space-y-2 text-sm">
+                            <div class="flex justify-between">
+                                <span class="text-blue-600">พนักงานทำโอที:</span>
+                                <span id="active-employees" class="font-semibold text-blue-600">0 คน</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-yellow-600">ใกล้เกิน (70+ ชม.):</span>
+                                <span id="warning-employees" class="font-semibold text-yellow-600">0 คน</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-red-600">เกิน 80 ชม.:</span>
+                                <span id="danger-employees" class="font-semibold text-red-600">0 คน</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Time Period Info -->
+                    <div class="bg-white p-4 rounded-lg border border-gray-100">
+                        <h4 class="font-semibold text-gray-700 mb-3">ช่วงเวลาข้อมูล</h4>
+                        <div class="space-y-2 text-sm">
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">เดือนที่แสดง:</span>
+                                <span id="display-period" class="font-semibold text-gray-700">ทั้งหมด</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">อัปเดตล่าสุด:</span>
+                                <span id="summary-last-update" class="font-semibold text-gray-700">-</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">เฉลี่ยโอที/คน:</span>
+                                <span id="average-ot" class="font-semibold text-purple-600">0.0 ชม.</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Data Table -->
+            <div class="overflow-x-auto">
+                <table class="w-full border-collapse border border-gray-300">
+                    <thead class="bg-gray-100">
+                        <tr>
+                            <th class="border border-gray-300 px-4 py-2">รหัสพนักงาน</th>
+                            <th class="border border-gray-300 px-4 py-2">ชื่อ-นามสกุล</th>
+                            <th class="border border-gray-300 px-4 py-2">แผนก</th>
+                            <th class="border border-gray-300 px-4 py-2">วันที่</th>
+                            <th class="border border-gray-300 px-4 py-2">เวลาเริ่ม</th>
+                            <th class="border border-gray-300 px-4 py-2">เวลาสิ้นสุด</th>
+                            <th class="border border-gray-300 px-4 py-2">ชั่วโมงทำงาน</th>
+                            <th class="border border-gray-300 px-4 py-2">โอทีวันหยุด</th>
+                            <th class="border border-gray-300 px-4 py-2">โอทีพิเศษ</th>
+                            <th class="border border-gray-300 px-4 py-2">รวมโอที</th>
+                            <th class="border border-gray-300 px-4 py-2">รวมโอที/เดือน</th>
+                            <th class="border border-gray-300 px-4 py-2">สถานะ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="data-table-body">
+                        <!-- Data will be populated here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- OT Entry Page -->
+    <div id="entry-page" class="page-content max-w-2xl mx-auto mt-8 p-6 hidden">
+        <div class="bg-white rounded-xl shadow-lg p-8">
+            <h2 class="text-3xl font-bold text-gray-800 mb-6 text-center">บันทึกข้อมูลโอที</h2>
+            <form id="ot-form" class="space-y-6">
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">เลือกพนักงาน</label>
+                    <div class="space-y-3">
+                        <!-- Employee Selection Method -->
+                        <div class="flex space-x-4">
+                            <label class="flex items-center">
+                                <input type="radio" name="emp-select-method" value="dropdown" checked 
+                                       onchange="toggleEmployeeInputMethod()" class="mr-2">
+                                <span class="text-sm">เลือกจากรายชื่อ</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="radio" name="emp-select-method" value="manual" 
+                                       onchange="toggleEmployeeInputMethod()" class="mr-2">
+                                <span class="text-sm">ใส่รหัสเอง</span>
+                            </label>
+                        </div>
+                        
+                        <!-- Employee Dropdown -->
+                        <div id="employee-dropdown-container">
+                            <div class="relative">
+                                <select id="employee-dropdown" 
+                                        class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                                        onchange="selectEmployeeFromDropdown()" required>
+                                    <option value="">กำลังโหลดรายชื่อพนักงาน...</option>
+                                </select>
+                                <div id="dropdown-loading" class="absolute right-3 top-1/2 transform -translate-y-1/2 hidden">
+                                    <div class="loading-spinner"></div>
+                                </div>
+                            </div>
+                            <div class="flex items-center justify-between mt-2">
+                                <button type="button" onclick="refreshEmployeeList()" 
+                                        class="text-sm text-blue-600 hover:text-blue-800 flex items-center">
+                                    <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z"/>
+                                    </svg>
+                                    รีเฟรชรายชื่อ
+                                </button>
+                                <div id="employee-sync-status" class="text-xs text-gray-500">
+                                    <span id="employee-sync-text">พร้อมใช้งาน</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Manual Input -->
+                        <div id="manual-input-container" class="hidden">
+                            <input type="text" id="ot-emp-id" maxlength="8" pattern="[0-9]{8}"
+                                   class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                                   placeholder="12345678">
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Employee Information Display -->
+                <div id="employee-info" class="hidden bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <h4 class="font-semibold text-blue-800 mb-3 flex items-center">
+                        <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"/>
+                        </svg>
+                        ข้อมูลพนักงาน
+                    </h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <span class="text-gray-600">ชื่อ-นามสกุล:</span>
+                            <div id="emp-display-name" class="font-semibold text-blue-700"></div>
+                        </div>
+                        <div>
+                            <span class="text-gray-600">แผนก:</span>
+                            <div id="emp-display-department" class="font-semibold text-blue-700"></div>
+                        </div>
+                        <div>
+                            <span class="text-gray-600">วันที่ลงทะเบียน:</span>
+                            <div id="emp-display-registered" class="font-semibold text-blue-700"></div>
+                        </div>
+                        <div>
+                            <span class="text-gray-600">โอทีเดือนนี้:</span>
+                            <div id="emp-display-monthly-ot" class="font-semibold text-orange-600"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Employee Not Found Warning -->
+                <div id="employee-not-found" class="hidden bg-red-50 border border-red-200 rounded-lg p-4">
+                    <div class="flex items-center">
+                        <svg class="w-5 h-5 text-red-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"/>
+                        </svg>
+                        <span class="text-red-700 font-semibold">ไม่พบข้อมูลพนักงาน</span>
+                    </div>
+                    <p class="text-red-600 text-sm mt-2">กรุณาตรวจสอบรหัสพนักงานหรือลงทะเบียนพนักงานก่อน</p>
+                    <button type="button" onclick="showPage('register')" class="mt-3 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm transition-colors">
+                        ไปหน้าลงทะเบียนพนักงาน
+                    </button>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">วันที่ทำโอที</label>
+                    <input type="date" id="ot-date"
+                           class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none" required>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">เลือกกะและเวลาทำงาน</label>
+                    <select id="shift-time-select" onchange="setShiftTimes()" 
+                            class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none mb-4" required>
+                        <option value="">เลือกกะและเวลา</option>
+                        <optgroup label="กะเช้า">
+                            <option value="morning-1">กะเช้า 08:00-17:00</option>
+                            <option value="morning-2">กะเช้า 08:00-20:00</option>
+                            <option value="morning-3">กะเช้า 08:00-22:00</option>
+                        </optgroup>
+                        <optgroup label="กะดึก">
+                            <option value="night-1">กะดึก 20:00-05:00</option>
+                            <option value="night-2">กะดึก 20:00-08:00</option>
+                            <option value="night-3">กะดึก 20:00-10:00</option>
+                        </optgroup>
+                        <option value="custom">กำหนดเวลาเอง</option>
+                    </select>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">เวลาเริ่มต้น</label>
+                        <input type="time" id="ot-start-time"
+                               class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">เวลาสิ้นสุด</label>
+                        <input type="time" id="ot-end-time"
+                               class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none" required>
+                    </div>
+                </div>
+
+                <div id="ot-calculation" class="bg-blue-50 p-4 rounded-lg hidden">
+                    <h4 class="font-semibold text-blue-800 mb-2">การคำนวณโอที</h4>
+                    <div id="ot-details" class="text-sm text-blue-700"></div>
+                </div>
+
+                <div id="ot-warning" class="bg-red-50 border border-red-200 p-4 rounded-lg hidden">
+                    <div class="flex items-center">
+                        <svg class="w-5 h-5 text-red-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"/>
+                        </svg>
+                        <span class="text-red-700 font-semibold">เตือน: โอทีเกิน 80 ชั่วโมงต่อเดือน!</span>
+                    </div>
+                </div>
+
+                <button type="submit" class="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold py-3 px-6 rounded-lg transition-colors">
+                    บันทึกข้อมูลโอที
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let employees = JSON.parse(localStorage.getItem('employees') || '[]');
+        let otRecords = JSON.parse(localStorage.getItem('otRecords') || '[]');
+        let adminSettings = JSON.parse(localStorage.getItem('adminSettings') || '{}');
+        let specialHolidays = JSON.parse(localStorage.getItem('specialHolidays') || '[]');
+        let yearlyHolidays = JSON.parse(localStorage.getItem('yearlyHolidays') || '{}');
+        let currentYear = new Date().getFullYear();
+        let dataRefreshInterval = null;
+        let isDataPageVisible = false;
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', function() {
+            // Set default date to today
+            document.getElementById('ot-date').value = new Date().toISOString().split('T')[0];
+            
+            // Set default year
+            document.getElementById('holiday-year').value = currentYear;
+            document.getElementById('sync-year').value = currentYear;
+            
+            // Load admin settings
+            if (adminSettings.gasUrl) {
+                document.getElementById('gas-url').value = adminSettings.gasUrl;
+            }
+            
+            // Load employee dropdown with local data first
+            loadEmployeeDropdown();
+            
+            // Preload employee data from Google Sheets in background if URL is configured
+            if (adminSettings.gasUrl) {
+                preloadEmployeeData();
+            }
+            
+            // Update connection status
+            updateConnectionStatus();
+            
+            // Update yearly summary
+            updateYearlySummary();
+        });
+
+        // Preload employee data in background for faster access
+        async function preloadEmployeeData() {
+            try {
+                const response = await fetch(`${adminSettings.gasUrl}?action=getAllEmployees`, {
+                    method: 'GET',
+                    mode: 'cors'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success && result.employees && result.employees.length > 0) {
+                    // Update employees array with fresh data from Google Sheets
+                    const hasNewData = JSON.stringify(employees) !== JSON.stringify(result.employees);
+                    
+                    if (hasNewData) {
+                        employees = result.employees;
+                        localStorage.setItem('employees', JSON.stringify(employees));
+                        console.log(`Preloaded ${result.employees.length} employees from Google Sheets`);
+                    }
+                }
+            } catch (error) {
+                console.log('Preload employee data failed (will use local data):', error);
+            }
+        }
+
+        // Update current year when year selector changes
+        function updateCurrentYear() {
+            const yearSelect = document.getElementById('holiday-year');
+            currentYear = parseInt(yearSelect.value);
+            
+            // Update sync year selector
+            document.getElementById('sync-year').value = currentYear;
+            
+            // Reload month holidays if a month is selected
+            const monthSelect = document.getElementById('holiday-month');
+            if (monthSelect.value) {
+                loadMonthHolidays();
+            }
+            
+            updateYearlySummary();
+        }
+
+        // Page navigation
+        function showPage(pageId) {
+            document.querySelectorAll('.page-content').forEach(page => {
+                page.classList.add('hidden');
+            });
+            document.getElementById(pageId + '-page').classList.remove('hidden');
+            
+            // Update page visibility tracking
+            isDataPageVisible = (pageId === 'data');
+            
+            if (pageId === 'data') {
+                // Auto-load data from Google Sheets when entering data page
+                autoLoadDataFromGoogleSheets();
+                startAutoRefresh();
+            } else {
+                stopAutoRefresh();
+                if (pageId === 'admin') {
+                    updateConnectionStatus();
+                } else if (pageId === 'entry') {
+                    // Auto-load employee data when entering OT entry page
+                    autoLoadEmployeeData();
+                }
+            }
+        }
+        
+        function startAutoRefresh() {
+            // Clear existing interval
+            if (dataRefreshInterval) {
+                clearInterval(dataRefreshInterval);
+            }
+            
+            // Auto-refresh every 30 seconds when data page is visible
+            dataRefreshInterval = setInterval(() => {
+                if (isDataPageVisible) {
+                    loadAllData();
+                    // Also auto-sync with Google Sheets every minute
+                    autoSyncWithGoogleSheets();
+                }
+            }, 30000);
+        }
+        
+        function stopAutoRefresh() {
+            if (dataRefreshInterval) {
+                clearInterval(dataRefreshInterval);
+                dataRefreshInterval = null;
+            }
+        }
+
+        // Employee registration
+        document.getElementById('employee-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const empId = document.getElementById('emp-id').value;
+            const empName = document.getElementById('emp-name').value;
+            const empDepartment = document.getElementById('emp-department').value;
+
+            // Check if employee ID already exists
+            if (employees.find(emp => emp.id === empId)) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'ข้อผิดพลาด',
+                    text: 'รหัสพนักงานนี้มีอยู่แล้ว',
+                    confirmButtonText: 'ตกลง',
+                    confirmButtonColor: '#ef4444'
+                });
+                return;
+            }
+
+            // Show loading
+            Swal.fire({
+                title: 'กำลังบันทึกข้อมูล...',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+
+            const employee = {
+                id: empId,
+                name: empName,
+                department: empDepartment,
+                registeredDate: new Date().toISOString()
+            };
+
+            employees.push(employee);
+            localStorage.setItem('employees', JSON.stringify(employees));
+            
+            // Send to Google Sheets
+            const success = await sendToGoogleSheets('employees', employee);
+            
+            // Close loading and show success
+            Swal.close();
+            
+            if (success) {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'สำเร็จ!',
+                    text: 'ลงทะเบียนพนักงานเรียบร้อยแล้ว และส่งข้อมูลไป Google Sheets แล้ว',
+                    confirmButtonText: 'ตกลง',
+                    confirmButtonColor: '#10b981'
+                });
+            } else {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'บันทึกสำเร็จ',
+                    text: 'ลงทะเบียนพนักงานเรียบร้อยแล้ว (บันทึกในเครื่อง)',
+                    confirmButtonText: 'ตกลง',
+                    confirmButtonColor: '#f59e0b'
+                });
+            }
+            
+            this.reset();
+        });
+
+        // Holiday management functions
+        const monthNames = ['', 'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 
+                           'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+
+        function loadMonthHolidays() {
+            const monthSelect = document.getElementById('holiday-month');
+            const selectedMonth = parseInt(monthSelect.value);
+            
+            if (!selectedMonth) {
+                document.getElementById('month-holiday-config').classList.add('hidden');
+                return;
+            }
+            
+            // Show configuration panel
+            document.getElementById('month-holiday-config').classList.remove('hidden');
+            document.getElementById('selected-month-name').textContent = monthNames[selectedMonth];
+            
+            // Generate Saturday options for the month
+            generateSaturdayOptions(selectedMonth);
+            
+            // Generate calendar for the month
+            generateMonthCalendar(selectedMonth);
+            
+            // Load existing holidays for this month
+            loadExistingMonthHolidays(selectedMonth);
+            
+            // Update yearly summary
+            updateYearlySummary();
+        }
+
+        function generateSaturdayOptions(month) {
+            const saturdayContainer = document.getElementById('saturday-options');
+            saturdayContainer.innerHTML = '';
+            
+            // Get all Saturdays in the month
+            const saturdays = getSaturdaysInMonth(currentYear, month);
+            
+            saturdays.forEach((saturday, index) => {
+                const div = document.createElement('div');
+                div.className = 'flex items-center bg-white p-3 rounded-lg border';
+                
+                const monthKey = `${currentYear}-${month}`;
+                const monthHolidays = yearlyHolidays[monthKey] || { saturdays: [], specials: [] };
+                const isChecked = monthHolidays.saturdays.includes(saturday) ? 'checked' : '';
+                
+                // Format date properly for display
+                const saturdayDate = new Date(saturday + 'T00:00:00');
+                const displayDate = saturdayDate.getDate();
+                
+                div.innerHTML = `
+                    <label class="flex items-center cursor-pointer">
+                        <input type="checkbox" ${isChecked} onchange="toggleSaturdayHoliday('${saturday}')" class="mr-2">
+                        <span class="text-sm">เสาร์ที่ ${index + 1} (${displayDate}/${month}/${currentYear})</span>
+                    </label>
+                `;
+                
+                saturdayContainer.appendChild(div);
+            });
+        }
+
+        function generateMonthCalendar(month) {
+            const calendarContainer = document.getElementById('month-calendar');
+            const firstDay = new Date(currentYear, month - 1, 1);
+            const lastDay = new Date(currentYear, month, 0);
+            const daysInMonth = lastDay.getDate();
+            const startingDayOfWeek = firstDay.getDay();
+            
+            let calendarHTML = `
+                <div class="text-center font-semibold mb-3">${monthNames[month]} ${currentYear}</div>
+                <div class="grid grid-cols-7 gap-1 mb-2">
+                    <div class="text-center font-semibold text-red-600 p-2">อา</div>
+                    <div class="text-center font-semibold p-2">จ</div>
+                    <div class="text-center font-semibold p-2">อ</div>
+                    <div class="text-center font-semibold p-2">พ</div>
+                    <div class="text-center font-semibold p-2">พฤ</div>
+                    <div class="text-center font-semibold p-2">ศ</div>
+                    <div class="text-center font-semibold text-blue-600 p-2">ส</div>
+                </div>
+                <div class="grid grid-cols-7 gap-1">
+            `;
+            
+            // Empty cells for days before the first day of the month
+            for (let i = 0; i < startingDayOfWeek; i++) {
+                calendarHTML += '<div class="p-2"></div>';
+            }
+            
+            // Days of the month
+            for (let day = 1; day <= daysInMonth; day++) {
+                const date = `${currentYear}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
+                const dayOfWeek = new Date(currentYear, month - 1, day).getDay();
+                const isSunday = dayOfWeek === 0;
+                const isSaturday = dayOfWeek === 6;
+                
+                let cellClass = 'p-2 text-center cursor-pointer rounded hover:bg-blue-100 border';
+                let textClass = '';
+                
+                const monthKey = `${currentYear}-${month}`;
+                const monthHolidays = yearlyHolidays[monthKey] || { saturdays: [], specials: [] };
+                const isSpecialHoliday = monthHolidays.specials.includes(date);
+                const isSaturdayHoliday = monthHolidays.saturdays.includes(date);
+                
+                if (isSunday) {
+                    cellClass += ' bg-red-100 border-red-300';
+                    textClass = 'text-red-700 font-semibold';
+                } else if (isSpecialHoliday) {
+                    cellClass += ' bg-green-100 border-green-300';
+                    textClass = 'text-green-700 font-semibold';
+                } else if (isSaturdayHoliday && isSaturday) {
+                    cellClass += ' bg-red-100 border-red-300';
+                    textClass = 'text-red-700 font-semibold';
+                } else if (isSaturday) {
+                    textClass = 'text-blue-500';
+                }
+                
+                calendarHTML += `
+                    <div class="${cellClass}" onclick="toggleSpecialHoliday('${date}')">
+                        <span class="${textClass}">${day}</span>
+                    </div>
+                `;
+            }
+            
+            calendarHTML += '</div>';
+            calendarContainer.innerHTML = calendarHTML;
+        }
+
+        function getSaturdaysInMonth(year, month) {
+            const saturdays = [];
+            
+            // Start from the first day of the month
+            for (let day = 1; day <= 31; day++) {
+                const date = new Date(year, month - 1, day);
+                
+                // Stop if we've moved to the next month
+                if (date.getMonth() !== month - 1) break;
+                
+                // Check if this day is a Saturday (day 6)
+                if (date.getDay() === 6) {
+                    // Format as YYYY-MM-DD
+                    const dateStr = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
+                    saturdays.push(dateStr);
+                }
+            }
+            
+            return saturdays;
+        }
+
+        function toggleSaturdayHoliday(date) {
+            const month = parseInt(date.split('-')[1]);
+            const monthKey = `${currentYear}-${month}`;
+            
+            if (!yearlyHolidays[monthKey]) {
+                yearlyHolidays[monthKey] = { saturdays: [], specials: [] };
+            }
+            
+            const saturdayIndex = yearlyHolidays[monthKey].saturdays.indexOf(date);
+            if (saturdayIndex > -1) {
+                yearlyHolidays[monthKey].saturdays.splice(saturdayIndex, 1);
+            } else {
+                yearlyHolidays[monthKey].saturdays.push(date);
+            }
+            
+            localStorage.setItem('yearlyHolidays', JSON.stringify(yearlyHolidays));
+            updateMonthSpecialHolidaysList(month);
+            generateMonthCalendar(month);
+        }
+
+        function toggleSpecialHoliday(date) {
+            const month = parseInt(date.split('-')[1]);
+            const monthKey = `${currentYear}-${month}`;
+            const dayOfWeek = new Date(date).getDay();
+            
+            // Don't allow Sunday to be toggled (always holiday)
+            if (dayOfWeek === 0) return;
+            
+            if (!yearlyHolidays[monthKey]) {
+                yearlyHolidays[monthKey] = { saturdays: [], specials: [] };
+            }
+            
+            const specialIndex = yearlyHolidays[monthKey].specials.indexOf(date);
+            if (specialIndex > -1) {
+                yearlyHolidays[monthKey].specials.splice(specialIndex, 1);
+            } else {
+                yearlyHolidays[monthKey].specials.push(date);
+            }
+            
+            localStorage.setItem('yearlyHolidays', JSON.stringify(yearlyHolidays));
+            updateMonthSpecialHolidaysList(month);
+            generateMonthCalendar(month);
+        }
+
+        function loadExistingMonthHolidays(month) {
+            updateMonthSpecialHolidaysList(month);
+        }
+
+        function updateMonthSpecialHolidaysList(month) {
+            const monthKey = `${currentYear}-${month}`;
+            const container = document.getElementById('month-special-holidays');
+            
+            const monthHolidays = yearlyHolidays[monthKey] || { saturdays: [], specials: [] };
+            const allHolidays = [...monthHolidays.saturdays, ...monthHolidays.specials].sort();
+            
+            if (allHolidays.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 text-sm">ยังไม่มีวันหยุดพิเศษ</p>';
+                return;
+            }
+            
+            let html = '<div class="space-y-2">';
+            allHolidays.forEach(date => {
+                const dateObj = new Date(date);
+                const dayOfWeek = dateObj.getDay();
+                const dayNames = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'];
+                const isSaturday = monthHolidays.saturdays.includes(date);
+                const isSpecial = monthHolidays.specials.includes(date);
+                
+                let badgeClass = isSaturday ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800';
+                let badgeText = isSaturday ? 'วันหยุดเสาร์' : 'วันหยุดพิเศษ';
+                
+                html += `
+                    <div class="flex justify-between items-center bg-gray-50 p-2 rounded">
+                        <span>${dateObj.getDate()} ${monthNames[month]} - ${dayNames[dayOfWeek]}</span>
+                        <span class="px-2 py-1 rounded text-xs font-semibold ${badgeClass}">${badgeText}</span>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            
+            container.innerHTML = html;
+        }
+
+        async function saveMonthHolidays() {
+            const month = parseInt(document.getElementById('holiday-month').value);
+            
+            // Auto-sync with Google Sheets when saving
+            const monthKey = `${currentYear}-${month}`;
+            const monthHolidays = yearlyHolidays[monthKey];
+            
+            if (monthHolidays && adminSettings.gasUrl) {
+                try {
+                    const holidaysToUpload = [];
+                    
+                    // Add Saturday holidays
+                    monthHolidays.saturdays.forEach(date => {
+                        holidaysToUpload.push({
+                            date: date,
+                            type: 'saturday',
+                            description: 'วันหยุดเสาร์'
+                        });
+                    });
+                    
+                    // Add special holidays
+                    monthHolidays.specials.forEach(date => {
+                        holidaysToUpload.push({
+                            date: date,
+                            type: 'special',
+                            description: 'วันหยุดพิเศษ'
+                        });
+                    });
+                    
+                    // Upload to Google Sheets
+                    await fetch(adminSettings.gasUrl, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            action: 'uploadHolidays',
+                            year: currentYear,
+                            holidays: holidaysToUpload
+                        })
+                    });
+                    
+                    console.log('Holidays auto-synced to Google Sheets');
+                } catch (error) {
+                    console.error('Auto-sync error:', error);
+                }
+            }
+            
+            Swal.fire({
+                icon: 'success',
+                title: 'บันทึกสำเร็จ!',
+                text: `บันทึกวันหยุดสำหรับเดือน${monthNames[month]}เรียบร้อยแล้ว และซิงค์กับ Google Sheets แล้ว`,
+                confirmButtonText: 'ตกลง',
+                confirmButtonColor: '#10b981'
+            });
+            
+            updateYearlySummary();
+        }
+
+        function updateYearlySummary() {
+            const summaryContainer = document.getElementById('yearly-holiday-summary');
+            let html = '<div class="grid md:grid-cols-3 gap-4">';
+            
+            for (let month = 1; month <= 12; month++) {
+                const monthKey = `${currentYear}-${month}`;
+                const monthHolidays = yearlyHolidays[monthKey] || { saturdays: [], specials: [] };
+                const totalHolidays = monthHolidays.saturdays.length + monthHolidays.specials.length;
+                
+                // Count Sundays in month
+                const sundaysCount = getSundaysInMonth(currentYear, month);
+                const totalWithSundays = totalHolidays + sundaysCount;
+                
+                html += `
+                    <div class="bg-white p-4 rounded-lg border">
+                        <h5 class="font-semibold text-gray-700 mb-2">${monthNames[month]}</h5>
+                        <div class="text-sm text-gray-600 space-y-1">
+                            <div>วันอาทิตย์: ${sundaysCount} วัน</div>
+                            <div class="text-red-600">วันหยุดเสาร์: ${monthHolidays.saturdays.length} วัน</div>
+                            <div class="text-green-600">วันหยุดพิเศษ: ${monthHolidays.specials.length} วัน</div>
+                            <div class="font-semibold text-purple-600 pt-1 border-t">รวม: ${totalWithSundays} วัน</div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            html += '</div>';
+            summaryContainer.innerHTML = html;
+        }
+
+        function getSundaysInMonth(year, month) {
+            let count = 0;
+            const date = new Date(year, month - 1, 1);
+            
+            while (date.getMonth() === month - 1) {
+                if (date.getDay() === 0) count++;
+                date.setDate(date.getDate() + 1);
+            }
+            
+            return count;
+        }
+
+        function isDateHoliday(date) {
+            const dateObj = new Date(date);
+            const dayOfWeek = dateObj.getDay();
+            const month = dateObj.getMonth() + 1;
+            const monthKey = `${dateObj.getFullYear()}-${month}`;
+            
+            // Sunday is always holiday
+            if (dayOfWeek === 0) return true;
+            
+            // Check if it's in yearly holidays
+            const monthHolidays = yearlyHolidays[monthKey];
+            if (monthHolidays) {
+                return monthHolidays.saturdays.includes(date) || monthHolidays.specials.includes(date);
+            }
+            
+            return false;
+        }
+
+        function saveAdminSettings() {
+            const settings = {
+                gasUrl: document.getElementById('gas-url').value,
+                saturdayHolidays: {
+                    week1: document.getElementById('sat-week1')?.checked || false,
+                    week2: document.getElementById('sat-week2')?.checked || false,
+                    week3: document.getElementById('sat-week3')?.checked || false,
+                    week4: document.getElementById('sat-week4')?.checked || false
+                }
+            };
+            
+            adminSettings = settings;
+            localStorage.setItem('adminSettings', JSON.stringify(adminSettings));
+            
+            Swal.fire({
+                icon: 'success',
+                title: 'สำเร็จ!',
+                text: 'บันทึกการตั้งค่าเรียบร้อยแล้ว',
+                confirmButtonText: 'ตกลง',
+                confirmButtonColor: '#10b981'
+            });
+            
+            updateConnectionStatus();
+        }
+
+        // Connection testing
+        async function testConnection() {
+            const gasUrl = document.getElementById('gas-url').value;
+            
+            if (!gasUrl) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'กรุณาใส่ URL',
+                    text: 'กรุณาใส่ URL ของ Google Apps Script ก่อนทดสอบการเชื่อมต่อ',
+                    confirmButtonText: 'ตกลง'
+                });
+                return;
+            }
+            
+            updateConnectionStatus('testing');
+            
+            try {
+                const response = await fetch(`${gasUrl}?action=test`, {
+                    method: 'GET',
+                    mode: 'no-cors'
+                });
+                
+                updateConnectionStatus('connected');
+                Swal.fire({
+                    icon: 'success',
+                    title: 'เชื่อมต่อสำเร็จ!',
+                    text: 'เชื่อมต่อ Google Sheets สำเร็จ',
+                    confirmButtonText: 'ตกลง',
+                    confirmButtonColor: '#10b981'
+                });
+            } catch (error) {
+                updateConnectionStatus('error');
+                Swal.fire({
+                    icon: 'error',
+                    title: 'เชื่อมต่อไม่สำเร็จ',
+                    text: 'ไม่สามารถเชื่อมต่อ Google Sheets ได้ กรุณาตรวจสอบ URL',
+                    confirmButtonText: 'ตกลง',
+                    confirmButtonColor: '#ef4444'
+                });
+            }
+        }
+
+        function updateConnectionStatus(status = null) {
+            const indicator = document.getElementById('status-indicator');
+            const text = document.getElementById('status-text');
+            
+            if (!indicator || !text) return;
+            
+            const gasUrl = adminSettings.gasUrl;
+            
+            switch(status) {
+                case 'testing':
+                    indicator.className = 'w-3 h-3 rounded-full bg-yellow-400 animate-pulse';
+                    text.textContent = 'กำลังทดสอบการเชื่อมต่อ...';
+                    break;
+                case 'connected':
+                    indicator.className = 'w-3 h-3 rounded-full bg-green-500';
+                    text.textContent = 'เชื่อมต่อ Google Sheets สำเร็จ';
+                    break;
+                case 'error':
+                    indicator.className = 'w-3 h-3 rounded-full bg-red-500';
+                    text.textContent = 'ไม่สามารถเชื่อมต่อได้';
+                    break;
+                default:
+                    if (gasUrl) {
+                        indicator.className = 'w-3 h-3 rounded-full bg-blue-500';
+                        text.textContent = 'พร้อมใช้งาน (URL ถูกตั้งค่าแล้ว)';
+                    } else {
+                        indicator.className = 'w-3 h-3 rounded-full bg-gray-400';
+                        text.textContent = 'ยังไม่ได้ตั้งค่า URL';
+                    }
+            }
+        }
+
+        // Show Apps Script Code
+        function showAppsScriptCode() {
+            const appsScriptCode = `
+// Google Apps Script Code สำหรับระบบโอที
+// วางโค้ดนี้ใน Google Apps Script และ Deploy เป็น Web App
+
+function doGet(e) {
+  const action = e.parameter.action;
+  
+  try {
+    switch(action) {
+      case 'test':
+        return ContentService.createTextOutput(JSON.stringify({success: true, message: 'Connection OK'})).setMimeType(ContentService.MimeType.JSON);
+      case 'getHolidays':
+        const year = e.parameter.year;
+        return getHolidays(year);
+      case 'ot':
+        return getOTRecords();
+      case 'getAllEmployees':
+        return getAllEmployees();
+      case 'getEmployee':
+        const empId = e.parameter.empId;
+        return getEmployee(empId);
+      case 'getEmployeeOT':
+        const empId2 = e.parameter.empId;
+        const month = e.parameter.month;
+        const year2 = e.parameter.year;
+        return getEmployeeOT(empId2, month, year2);
+      default:
+        return ContentService.createTextOutput(JSON.stringify({success: false, message: 'Unknown action'})).setMimeType(ContentService.MimeType.JSON);
+    }
+  } catch (error) {
+    return ContentService.createTextOutput(JSON.stringify({success: false, message: error.toString()})).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+function doPost(e) {
+  try {
+    const data = JSON.parse(e.postData.contents);
+    const action = data.action;
+    
+    switch(action) {
+      case 'employees':
+        return saveEmployee(data.data);
+      case 'ot':
+        return saveOTRecord(data.data);
+      case 'uploadHolidays':
+        return uploadHolidays(data.year, data.holidays);
+      default:
+        return ContentService.createTextOutput(JSON.stringify({success: false, message: 'Unknown action'})).setMimeType(ContentService.MimeType.JSON);
+    }
+  } catch (error) {
+    return ContentService.createTextOutput(JSON.stringify({success: false, message: error.toString()})).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+function saveEmployee(employee) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName('Employees');
+  
+  if (!sheet) {
+    sheet = ss.insertSheet('Employees');
+    sheet.getRange(1, 1, 1, 4).setValues([['ID', 'Name', 'Department', 'Registered Date']]);
+  }
+  
+  sheet.appendRow([employee.id, employee.name, employee.department, new Date(employee.registeredDate)]);
+  
+  return ContentService.createTextOutput(JSON.stringify({success: true, message: 'Employee saved'})).setMimeType(ContentService.MimeType.JSON);
+}
+
+function saveOTRecord(record) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName('OT_Records');
+  
+  if (!sheet) {
+    sheet = ss.insertSheet('OT_Records');
+    sheet.getRange(1, 1, 1, 11).setValues([['Record ID', 'Employee ID', 'Employee Name', 'Department', 'Date', 'Start Time', 'End Time', 'Total Hours', 'OT Hours', 'Monthly Total', 'Details']]);
+  }
+  
+  sheet.appendRow([
+    record.id,
+    record.empId,
+    record.empName,
+    record.department,
+    new Date(record.date),
+    record.startTime,
+    record.endTime,
+    record.totalHours,
+    record.otHours,
+    record.monthlyTotal,
+    record.details
+  ]);
+  
+  return ContentService.createTextOutput(JSON.stringify({success: true, message: 'OT record saved'})).setMimeType(ContentService.MimeType.JSON);
+}
+
+function uploadHolidays(year, holidays) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName('Holidays');
+  
+  if (!sheet) {
+    sheet = ss.insertSheet('Holidays');
+    sheet.getRange(1, 1, 1, 4).setValues([['Date', 'Type', 'Description', 'Year']]);
+  }
+  
+  // Clear existing holidays for the year
+  const data = sheet.getDataRange().getValues();
+  for (let i = data.length - 1; i >= 1; i--) {
+    if (data[i][3] == year) {
+      sheet.deleteRow(i + 1);
+    }
+  }
+  
+  // Add new holidays
+  holidays.forEach(holiday => {
+    sheet.appendRow([new Date(holiday.date), holiday.type, holiday.description, year]);
+  });
+  
+  return ContentService.createTextOutput(JSON.stringify({success: true, message: 'Holidays updated'})).setMimeType(ContentService.MimeType.JSON);
+}
+
+function getHolidays(year) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName('Holidays');
+  
+  if (!sheet) {
+    return ContentService.createTextOutput(JSON.stringify({success: false, message: 'Holidays sheet not found'})).setMimeType(ContentService.MimeType.JSON);
+  }
+  
+  const data = sheet.getDataRange().getValues();
+  const holidays = [];
+  
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][3] == year) {
+      holidays.push({
+        date: data[i][0].toISOString().split('T')[0],
+        type: data[i][1],
+        description: data[i][2]
+      });
+    }
+  }
+  
+  return ContentService.createTextOutput(JSON.stringify({success: true, holidays: holidays})).setMimeType(ContentService.MimeType.JSON);
+}
+
+function getOTRecords() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName('OT_Records');
+  
+  if (!sheet) {
+    return ContentService.createTextOutput(JSON.stringify({success: false, message: 'OT Records sheet not found'})).setMimeType(ContentService.MimeType.JSON);
+  }
+  
+  const data = sheet.getDataRange().getValues();
+  const records = [];
+  
+  for (let i = 1; i < data.length; i++) {
+    records.push({
+      id: data[i][0],
+      empId: data[i][1],
+      empName: data[i][2],
+      department: data[i][3],
+      date: data[i][4].toISOString().split('T')[0],
+      startTime: data[i][5],
+      endTime: data[i][6],
+      totalHours: data[i][7],
+      otHours: data[i][8],
+      monthlyTotal: data[i][9],
+      details: data[i][10]
+    });
+  }
+  
+  return ContentService.createTextOutput(JSON.stringify({success: true, data: records})).setMimeType(ContentService.MimeType.JSON);
+}
+
+function getAllEmployees() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName('Employees');
+  
+  if (!sheet) {
+    return ContentService.createTextOutput(JSON.stringify({success: false, message: 'Employees sheet not found'})).setMimeType(ContentService.MimeType.JSON);
+  }
+  
+  const data = sheet.getDataRange().getValues();
+  const employees = [];
+  
+  for (let i = 1; i < data.length; i++) {
+    employees.push({
+      id: data[i][0],
+      name: data[i][1],
+      department: data[i][2],
+      registeredDate: data[i][3].toISOString()
+    });
+  }
+  
+  return ContentService.createTextOutput(JSON.stringify({success: true, employees: employees})).setMimeType(ContentService.MimeType.JSON);
+}
+
+function getEmployee(empId) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName('Employees');
+  
+  if (!sheet) {
+    return ContentService.createTextOutput(JSON.stringify({success: false, message: 'Employees sheet not found'})).setMimeType(ContentService.MimeType.JSON);
+  }
+  
+  const data = sheet.getDataRange().getValues();
+  
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] == empId) {
+      const employee = {
+        id: data[i][0],
+        name: data[i][1],
+        department: data[i][2],
+        registeredDate: data[i][3].toISOString()
+      };
+      return ContentService.createTextOutput(JSON.stringify({success: true, employee: employee})).setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+  
+  return ContentService.createTextOutput(JSON.stringify({success: false, message: 'Employee not found'})).setMimeType(ContentService.MimeType.JSON);
+}
+
+function getEmployeeOT(empId, month, year) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName('OT_Records');
+  
+  if (!sheet) {
+    return ContentService.createTextOutput(JSON.stringify({success: false, message: 'OT Records sheet not found'})).setMimeType(ContentService.MimeType.JSON);
+  }
+  
+  const data = sheet.getDataRange().getValues();
+  const records = [];
+  
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][1] == empId) {
+      const recordDate = new Date(data[i][4]);
+      if (recordDate.getMonth() + 1 == month && recordDate.getFullYear() == year) {
+        records.push({
+          id: data[i][0],
+          empId: data[i][1],
+          empName: data[i][2],
+          department: data[i][3],
+          date: data[i][4].toISOString().split('T')[0],
+          startTime: data[i][5],
+          endTime: data[i][6],
+          totalHours: data[i][7],
+          otHours: data[i][8],
+          monthlyTotal: data[i][9],
+          details: data[i][10]
+        });
+      }
+    }
+  }
+  
+  const totalOT = records.reduce((sum, record) => sum + record.otHours, 0);
+  
+  return ContentService.createTextOutput(JSON.stringify({success: true, records: records, totalOT: totalOT})).setMimeType(ContentService.MimeType.JSON);
+}
+            `;
+            
+            Swal.fire({
+                title: 'Google Apps Script Code',
+                html: `
+                    <div class="text-left">
+                        <p class="mb-4 text-sm text-gray-600">คัดลอกโค้ดด้านล่างไปวางใน Google Apps Script:</p>
+                        <div class="bg-gray-100 p-4 rounded-lg text-xs overflow-auto max-h-96">
+                            <pre><code>${appsScriptCode}</code></pre>
+                        </div>
+                        <div class="mt-4 text-sm text-gray-600">
+                            <p><strong>วิธีการใช้งาน:</strong></p>
+                            <ol class="list-decimal list-inside mt-2 space-y-1">
+                                <li>ไปที่ <a href="https://script.google.com" target="_blank" class="text-blue-500">script.google.com</a></li>
+                                <li>สร้าง New Project</li>
+                                <li>วางโค้ดด้านบนแทนโค้ดเดิม</li>
+                                <li>บันทึกและ Deploy เป็น Web App</li>
+                                <li>คัดลอก URL มาใส่ในช่อง Google Apps Script URL</li>
+                            </ol>
+                        </div>
+                    </div>
+                `,
+                width: '900px',
+                confirmButtonText: 'คัดลอกโค้ด',
+                showCancelButton: true,
+                cancelButtonText: 'ปิด',
+                confirmButtonColor: '#8b5cf6'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    navigator.clipboard.writeText(appsScriptCode).then(() => {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'คัดลอกแล้ว!',
+                            text: 'คัดลอกโค้ดไปยัง Clipboard แล้ว',
+                            timer: 2000,
+                            showConfirmButton: false
+                        });
+                    });
+                }
+            });
+        }
+
+        // Google Sheets Holiday Sync Functions
+        async function syncHolidaysWithGoogleSheets() {
+            const syncYear = document.getElementById('sync-year').value;
+            const syncAction = document.getElementById('sync-action').value;
+            const gasUrl = adminSettings.gasUrl;
+            
+            if (!gasUrl) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'กรุณาตั้งค่า URL',
+                    text: 'กรุณาใส่ URL ของ Google Apps Script ก่อน',
+                    confirmButtonText: 'ตกลง'
+                });
+                return;
+            }
+            
+            updateSyncStatus('syncing', 'กำลังซิงค์วันหยุด...');
+            
+            try {
+                if (syncAction === 'upload' || syncAction === 'sync') {
+                    // Upload local holidays to Google Sheets
+                    const holidaysToUpload = [];
+                    
+                    for (let month = 1; month <= 12; month++) {
+                        const monthKey = `${syncYear}-${month}`;
+                        const monthHolidays = yearlyHolidays[monthKey];
+                        
+                        if (monthHolidays) {
+                            // Add Saturday holidays
+                            monthHolidays.saturdays.forEach(date => {
+                                holidaysToUpload.push({
+                                    date: date,
+                                    type: 'saturday',
+                                    description: 'วันหยุดเสาร์'
+                                });
+                            });
+                            
+                            // Add special holidays
+                            monthHolidays.specials.forEach(date => {
+                                holidaysToUpload.push({
+                                    date: date,
+                                    type: 'special',
+                                    description: 'วันหยุดพิเศษ'
+                                });
+                            });
+                        }
+                    }
+                    
+                    const uploadResponse = await fetch(gasUrl, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            action: 'uploadHolidays',
+                            year: syncYear,
+                            holidays: holidaysToUpload
+                        })
+                    });
+                    
+                    console.log('Holidays uploaded to Google Sheets');
+                }
+                
+                if (syncAction === 'download' || syncAction === 'sync') {
+                    // Download holidays from Google Sheets
+                    const downloadResponse = await fetch(`${gasUrl}?action=getHolidays&year=${syncYear}`);
+                    const result = await downloadResponse.json();
+                    
+                    if (result.success && result.holidays) {
+                        // Process downloaded holidays
+                        const downloadedHolidays = {};
+                        
+                        result.holidays.forEach(holiday => {
+                            const date = holiday.date;
+                            const month = parseInt(date.split('-')[1]);
+                            const monthKey = `${syncYear}-${month}`;
+                            
+                            if (!downloadedHolidays[monthKey]) {
+                                downloadedHolidays[monthKey] = { saturdays: [], specials: [] };
+                            }
+                            
+                            if (holiday.type === 'saturday') {
+                                downloadedHolidays[monthKey].saturdays.push(date);
+                            } else if (holiday.type === 'special') {
+                                downloadedHolidays[monthKey].specials.push(date);
+                            }
+                        });
+                        
+                        // Merge with local data
+                        Object.keys(downloadedHolidays).forEach(monthKey => {
+                            yearlyHolidays[monthKey] = downloadedHolidays[monthKey];
+                        });
+                        
+                        localStorage.setItem('yearlyHolidays', JSON.stringify(yearlyHolidays));
+                        updateYearlySummary();
+                        
+                        updateSyncStatus('success', `ซิงค์สำเร็จ! ดาวน์โหลดวันหยุด ${result.holidays.length} วัน`);
+                    } else {
+                        updateSyncStatus('error', 'ไม่พบข้อมูลวันหยุดใน Google Sheets');
+                    }
+                } else {
+                    updateSyncStatus('success', 'อัปโหลดวันหยุดไป Google Sheets สำเร็จ');
+                }
+                
+            } catch (error) {
+                console.error('Holiday sync error:', error);
+                updateSyncStatus('error', 'เกิดข้อผิดพลาดในการซิงค์วันหยุด');
+            }
+        }
+
+        async function viewGoogleSheetsHolidays() {
+            const syncYear = document.getElementById('sync-year').value;
+            const gasUrl = adminSettings.gasUrl;
+            
+            if (!gasUrl) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'กรุณาตั้งค่า URL',
+                    text: 'กรุณาใส่ URL ของ Google Apps Script ก่อน',
+                    confirmButtonText: 'ตกลง'
+                });
+                return;
+            }
+            
+            try {
+                updateSyncStatus('syncing', 'กำลังโหลดข้อมูลจาก Google Sheets...');
+                
+                const response = await fetch(`${gasUrl}?action=getHolidays&year=${syncYear}`);
+                const result = await response.json();
+                
+                if (result.success && result.holidays) {
+                    const holidays = result.holidays;
+                    let holidaysByMonth = {};
+                    
+                    holidays.forEach(holiday => {
+                        const month = parseInt(holiday.date.split('-')[1]);
+                        if (!holidaysByMonth[month]) {
+                            holidaysByMonth[month] = [];
+                        }
+                        holidaysByMonth[month].push(holiday);
+                    });
+                    
+                    let htmlContent = `<div class="max-w-4xl">`;
+                    htmlContent += `<h3 class="text-lg font-semibold mb-4">วันหยุดปี ${syncYear} ใน Google Sheets</h3>`;
+                    
+                    const monthNames = ['', 'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 
+                                       'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+                    
+                    for (let month = 1; month <= 12; month++) {
+                        if (holidaysByMonth[month]) {
+                            htmlContent += `<div class="mb-4">`;
+                            htmlContent += `<h4 class="font-semibold text-blue-700">${monthNames[month]}</h4>`;
+                            htmlContent += `<div class="grid grid-cols-2 gap-2 mt-2">`;
+                            
+                            holidaysByMonth[month].forEach(holiday => {
+                                const date = new Date(holiday.date);
+                                const dayNames = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'];
+                                const dayName = dayNames[date.getDay()];
+                                const typeColor = holiday.type === 'saturday' ? 'text-red-600' : 'text-green-600';
+                                
+                                htmlContent += `
+                                    <div class="bg-gray-50 p-2 rounded text-sm">
+                                        <div>${date.getDate()} ${monthNames[month]} - ${dayName}</div>
+                                        <div class="${typeColor} text-xs">${holiday.description}</div>
+                                    </div>
+                                `;
+                            });
+                            
+                            htmlContent += `</div></div>`;
+                        }
+                    }
+                    
+                    htmlContent += `</div>`;
+                    
+                    Swal.fire({
+                        title: 'ข้อมูลวันหยุดใน Google Sheets',
+                        html: htmlContent,
+                        width: '800px',
+                        confirmButtonText: 'ปิด',
+                        confirmButtonColor: '#3b82f6'
+                    });
+                    
+                    updateSyncStatus('success', `พบวันหยุด ${holidays.length} วันใน Google Sheets`);
+                } else {
+                    updateSyncStatus('error', 'ไม่พบข้อมูลวันหยุดใน Google Sheets');
+                    
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'ไม่พบข้อมูล',
+                        text: 'ไม่พบข้อมูลวันหยุดใน Google Sheets สำหรับปีที่เลือก',
+                        confirmButtonText: 'ตกลง'
+                    });
+                }
+                
+            } catch (error) {
+                console.error('Error viewing Google Sheets holidays:', error);
+                updateSyncStatus('error', 'เกิดข้อผิดพลาดในการโหลดข้อมูล');
+                
+                Swal.fire({
+                    icon: 'error',
+                    title: 'เกิดข้อผิดพลาด',
+                    text: 'ไม่สามารถโหลดข้อมูลจาก Google Sheets ได้',
+                    confirmButtonText: 'ตกลง'
+                });
+            }
+        }
+
+        function updateSyncStatus(status, message, details = '') {
+            const statusDiv = document.getElementById('sync-status');
+            const indicator = document.getElementById('sync-indicator');
+            const text = document.getElementById('sync-text');
+            const detailsDiv = document.getElementById('sync-details');
+            
+            statusDiv.classList.remove('hidden');
+            
+            switch(status) {
+                case 'syncing':
+                    indicator.className = 'w-3 h-3 rounded-full bg-yellow-400 animate-pulse mr-2';
+                    text.textContent = message;
+                    break;
+                case 'success':
+                    indicator.className = 'w-3 h-3 rounded-full bg-green-500 mr-2';
+                    text.textContent = message;
+                    break;
+                case 'error':
+                    indicator.className = 'w-3 h-3 rounded-full bg-red-500 mr-2';
+                    text.textContent = message;
+                    break;
+            }
+            
+            detailsDiv.textContent = details;
+        }
+
+        // Employee dropdown management
+        function loadEmployeeDropdown() {
+            const dropdown = document.getElementById('employee-dropdown');
+            
+            if (employees.length === 0) {
+                dropdown.innerHTML = '<option value="">ไม่มีพนักงานในระบบ - กรุณาลงทะเบียนก่อน</option>';
+                return;
+            }
+            
+            dropdown.innerHTML = '<option value="">เลือกพนักงาน</option>';
+            employees.forEach(emp => {
+                const option = document.createElement('option');
+                option.value = emp.id;
+                option.textContent = `${emp.id} - ${emp.name} (${emp.department})`;
+                dropdown.appendChild(option);
+            });
+        }
+
+        // Auto-load employee data when entering OT entry page
+        async function autoLoadEmployeeData() {
+            const dropdown = document.getElementById('employee-dropdown');
+            const loadingIndicator = document.getElementById('dropdown-loading');
+            const statusText = document.getElementById('employee-sync-text');
+            
+            // Show loading state
+            dropdown.innerHTML = '<option value="">กำลังโหลดข้อมูลพนักงาน...</option>';
+            loadingIndicator?.classList.remove('hidden');
+            statusText.textContent = 'กำลังโหลด...';
+            
+            // If no Google Sheets URL configured, use local data only
+            if (!adminSettings.gasUrl) {
+                loadEmployeeDropdown();
+                loadingIndicator?.classList.add('hidden');
+                statusText.textContent = 'ใช้ข้อมูลในเครื่อง';
+                return;
+            }
+            
+            try {
+                // Try to fetch from Google Sheets
+                const response = await fetch(`${adminSettings.gasUrl}?action=getAllEmployees`, {
+                    method: 'GET',
+                    mode: 'cors'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success && result.employees && result.employees.length > 0) {
+                    // Update employees array with fresh data from Google Sheets
+                    employees = result.employees;
+                    localStorage.setItem('employees', JSON.stringify(employees));
+                    
+                    // Load the updated dropdown
+                    loadEmployeeDropdown();
+                    
+                    // Update status
+                    statusText.textContent = `อัปเดตล่าสุด: ${new Date().toLocaleTimeString('th-TH')} (${result.employees.length} คน)`;
+                    statusText.className = 'text-xs text-green-600';
+                    
+                    console.log(`Auto-loaded ${result.employees.length} employees from Google Sheets`);
+                } else {
+                    // Fallback to local data
+                    loadEmployeeDropdown();
+                    statusText.textContent = 'ใช้ข้อมูลในเครื่อง (Google Sheets ไม่มีข้อมูล)';
+                    statusText.className = 'text-xs text-yellow-600';
+                    console.log('Using local employee data (Google Sheets returned no data)');
+                }
+                
+            } catch (error) {
+                console.error('Error auto-loading employees:', error);
+                
+                // Fallback to local data
+                loadEmployeeDropdown();
+                
+                // Update status
+                if (employees.length === 0) {
+                    dropdown.innerHTML = '<option value="">ไม่สามารถโหลดข้อมูลได้ - กรุณาลงทะเบียนพนักงานก่อน</option>';
+                    statusText.textContent = 'ไม่สามารถเชื่อมต่อได้';
+                    statusText.className = 'text-xs text-red-600';
+                } else {
+                    statusText.textContent = 'ใช้ข้อมูลในเครื่อง (ไม่สามารถเชื่อมต่อ Google Sheets)';
+                    statusText.className = 'text-xs text-yellow-600';
+                }
+            } finally {
+                // Hide loading indicator
+                loadingIndicator?.classList.add('hidden');
+            }
+        }
+
+        async function refreshEmployeeList() {
+            if (!adminSettings.gasUrl) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'ไม่พบการตั้งค่า',
+                    text: 'กรุณาตั้งค่า Google Apps Script URL ก่อน',
+                    confirmButtonText: 'ตกลง'
+                });
+                return;
+            }
+            
+            const dropdown = document.getElementById('employee-dropdown');
+            const loadingIndicator = document.getElementById('dropdown-loading');
+            const statusText = document.getElementById('employee-sync-text');
+            
+            // Show loading state
+            loadingIndicator?.classList.remove('hidden');
+            statusText.textContent = 'กำลังรีเฟรช...';
+            statusText.className = 'text-xs text-blue-600';
+            
+            try {
+                const response = await fetch(`${adminSettings.gasUrl}?action=getAllEmployees`);
+                const result = await response.json();
+                
+                if (result.success && result.employees) {
+                    // Update local storage with Google Sheets data
+                    employees = result.employees;
+                    localStorage.setItem('employees', JSON.stringify(employees));
+                    
+                    // Reload dropdown
+                    loadEmployeeDropdown();
+                    
+                    // Update status
+                    statusText.textContent = `รีเฟรชสำเร็จ: ${new Date().toLocaleTimeString('th-TH')} (${result.employees.length} คน)`;
+                    statusText.className = 'text-xs text-green-600';
+                    
+                    // Show success toast
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'รีเฟรชสำเร็จ!',
+                        text: `โหลดข้อมูลพนักงาน ${result.employees.length} คน จาก Google Sheets`,
+                        timer: 2000,
+                        showConfirmButton: false,
+                        toast: true,
+                        position: 'top-end'
+                    });
+                } else {
+                    statusText.textContent = 'ไม่พบข้อมูลใน Google Sheets';
+                    statusText.className = 'text-xs text-red-600';
+                    
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'ไม่สามารถโหลดข้อมูลได้',
+                        text: 'ไม่พบข้อมูลพนักงานใน Google Sheets',
+                        confirmButtonText: 'ตกลง'
+                    });
+                }
+            } catch (error) {
+                console.error('Error refreshing employee list:', error);
+                
+                statusText.textContent = 'เกิดข้อผิดพลาดในการรีเฟรช';
+                statusText.className = 'text-xs text-red-600';
+                
+                Swal.fire({
+                    icon: 'error',
+                    title: 'เกิดข้อผิดพลาด',
+                    text: 'ไม่สามารถเชื่อมต่อ Google Sheets ได้',
+                    confirmButtonText: 'ตกลง'
+                });
+            } finally {
+                // Hide loading indicator
+                loadingIndicator?.classList.add('hidden');
+            }
+        }
+
+        function toggleEmployeeInputMethod() {
+            const method = document.querySelector('input[name="emp-select-method"]:checked').value;
+            const dropdownContainer = document.getElementById('employee-dropdown-container');
+            const manualContainer = document.getElementById('manual-input-container');
+            const dropdown = document.getElementById('employee-dropdown');
+            const manualInput = document.getElementById('ot-emp-id');
+            
+            if (method === 'dropdown') {
+                dropdownContainer.classList.remove('hidden');
+                manualContainer.classList.add('hidden');
+                dropdown.required = true;
+                manualInput.required = false;
+                manualInput.value = '';
+            } else {
+                dropdownContainer.classList.add('hidden');
+                manualContainer.classList.remove('hidden');
+                dropdown.required = false;
+                manualInput.required = true;
+                dropdown.value = '';
+            }
+            
+            // Clear employee info display
+            hideEmployeeInfo();
+        }
+
+        function selectEmployeeFromDropdown() {
+            const dropdown = document.getElementById('employee-dropdown');
+            const selectedEmpId = dropdown.value;
+            
+            if (selectedEmpId) {
+                displayEmployeeInfo(selectedEmpId);
+            } else {
+                hideEmployeeInfo();
+            }
+        }
+
+        async function displayEmployeeInfo(empId) {
+            const employee = employees.find(emp => emp.id === empId);
+            
+            if (!employee) {
+                showEmployeeNotFound();
+                return;
+            }
+            
+            // Calculate monthly OT
+            const currentDate = new Date();
+            const currentMonth = currentDate.getMonth() + 1;
+            const currentYear = currentDate.getFullYear();
+            
+            const monthlyOT = calculateMonthlyOT(empId, currentMonth, currentYear);
+            
+            // Display employee info
+            document.getElementById('emp-display-name').textContent = employee.name;
+            document.getElementById('emp-display-department').textContent = employee.department;
+            document.getElementById('emp-display-registered').textContent = new Date(employee.registeredDate).toLocaleDateString('th-TH');
+            document.getElementById('emp-display-monthly-ot').textContent = `${monthlyOT.toFixed(1)} ชั่วโมง`;
+            
+            document.getElementById('employee-info').classList.remove('hidden');
+            document.getElementById('employee-not-found').classList.add('hidden');
+            
+            // Check if monthly OT exceeds 80 hours
+            if (monthlyOT > 80) {
+                document.getElementById('ot-warning').classList.remove('hidden');
+            } else {
+                document.getElementById('ot-warning').classList.add('hidden');
+            }
+        }
+
+        function showEmployeeNotFound() {
+            document.getElementById('employee-info').classList.add('hidden');
+            document.getElementById('employee-not-found').classList.remove('hidden');
+            document.getElementById('ot-warning').classList.add('hidden');
+        }
+
+        function hideEmployeeInfo() {
+            document.getElementById('employee-info').classList.add('hidden');
+            document.getElementById('employee-not-found').classList.add('hidden');
+            document.getElementById('ot-warning').classList.add('hidden');
+        }
+
+        // Manual employee ID input handler
+        document.getElementById('ot-emp-id').addEventListener('input', function() {
+            const empId = this.value;
+            
+            if (empId.length === 8) {
+                displayEmployeeInfo(empId);
+            } else {
+                hideEmployeeInfo();
+            }
+        });
+
+        // Shift time presets
+        function setShiftTimes() {
+            const shiftSelect = document.getElementById('shift-time-select');
+            const startTimeInput = document.getElementById('ot-start-time');
+            const endTimeInput = document.getElementById('ot-end-time');
+            
+            const shiftTimes = {
+                'morning-1': { start: '08:00', end: '17:00' },
+                'morning-2': { start: '08:00', end: '20:00' },
+                'morning-3': { start: '08:00', end: '22:00' },
+                'night-1': { start: '20:00', end: '05:00' },
+                'night-2': { start: '20:00', end: '08:00' },
+                'night-3': { start: '20:00', end: '10:00' }
+            };
+            
+            const selectedShift = shiftTimes[shiftSelect.value];
+            if (selectedShift) {
+                startTimeInput.value = selectedShift.start;
+                endTimeInput.value = selectedShift.end;
+                calculateOTHours();
+            } else if (shiftSelect.value === 'custom') {
+                startTimeInput.value = '';
+                endTimeInput.value = '';
+                hideOTCalculation();
+            }
+        }
+
+        // Time input handlers
+        document.getElementById('ot-start-time').addEventListener('change', calculateOTHours);
+        document.getElementById('ot-end-time').addEventListener('change', calculateOTHours);
+
+        function calculateOTHours() {
+            const startTime = document.getElementById('ot-start-time').value;
+            const endTime = document.getElementById('ot-end-time').value;
+            const otDate = document.getElementById('ot-date').value;
+            
+            if (!startTime || !endTime || !otDate) {
+                hideOTCalculation();
+                return;
+            }
+            
+            const isHoliday = isDateHoliday(otDate);
+            const { totalHours, otHours, details } = calculateWorkingHours(startTime, endTime, isHoliday);
+            
+            // Display calculation
+            document.getElementById('ot-details').innerHTML = details;
+            document.getElementById('ot-calculation').classList.remove('hidden');
+        }
+
+        function hideOTCalculation() {
+            document.getElementById('ot-calculation').classList.add('hidden');
+        }
+
+        function calculateWorkingHours(startTime, endTime, isHoliday) {
+            const start = new Date(`2000-01-01T${startTime}:00`);
+            let end = new Date(`2000-01-01T${endTime}:00`);
+            
+            // Handle overnight shifts
+            if (end <= start) {
+                end.setDate(end.getDate() + 1);
+            }
+            
+            const totalMinutes = (end - start) / (1000 * 60);
+            const totalHours = totalMinutes / 60;
+            
+            let regularHours = 0;
+            let otHours = 0;
+            let holidayOT = 0;
+            let extraOT = 0;
+            let details = '';
+            
+            if (isHoliday) {
+                // Holiday calculation with break deduction
+                const { workingHours, breakHours, regularPeriod, overtimePeriod } = calculateHolidayHours(startTime, endTime);
+                
+                holidayOT = regularPeriod.hours;
+                extraOT = overtimePeriod.hours;
+                otHours = holidayOT + extraOT;
+                
+                details = `
+                    <div class="space-y-3">
+                        <div class="font-semibold text-red-600 flex items-center">
+                            <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"/>
+                            </svg>
+                            วันหยุด - คำนวณแยกประเภทโอที
+                        </div>
+                        <div class="bg-red-50 p-3 rounded-lg border border-red-200">
+                            <div class="grid grid-cols-2 gap-4 text-sm">
+                                <div>
+                                    <div class="font-semibold text-red-700">ช่วงเวลาปกติ (${regularPeriod.period})</div>
+                                    <div>เวลาทำงาน: ${regularPeriod.totalHours.toFixed(2)} ชม.</div>
+                                    <div>หักเบรก: ${regularPeriod.breakHours.toFixed(2)} ชม.</div>
+                                    <div class="font-semibold text-red-600">โอทีวันหยุด: ${holidayOT.toFixed(2)} ชม.</div>
+                                </div>
+                                <div>
+                                    <div class="font-semibold text-orange-700">ช่วงเวลาพิเศษ (${overtimePeriod.period})</div>
+                                    <div>เวลาทำงาน: ${overtimePeriod.totalHours.toFixed(2)} ชม.</div>
+                                    <div>หักเบรก: ${overtimePeriod.breakHours.toFixed(2)} ชม.</div>
+                                    <div class="font-semibold text-orange-600">โอทีพิเศษ: ${extraOT.toFixed(2)} ชม.</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-purple-50 p-3 rounded-lg border border-purple-200">
+                            <div class="font-semibold text-purple-700">สรุปรวม</div>
+                            <div class="text-sm mt-1">
+                                <div>เวลาทำงานทั้งหมด: ${totalHours.toFixed(2)} ชั่วโมง</div>
+                                <div>หักเบรกรวม: ${breakHours.toFixed(2)} ชั่วโมง</div>
+                                <div class="font-semibold text-purple-600 text-lg">รวมโอทีทั้งหมด: ${otHours.toFixed(2)} ชั่วโมง</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                // Regular working day calculation with new shift system
+                const { regularHours: regHours, otHours: overtimeHours, details: calcDetails } = calculateRegularDayHours(startTime, endTime);
+                
+                regularHours = regHours;
+                otHours = overtimeHours;
+                
+                details = `
+                    <div class="space-y-3">
+                        <div class="font-semibold text-blue-600 flex items-center">
+                            <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z"/>
+                            </svg>
+                            วันทำงานปกติ
+                        </div>
+                        <div class="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                            ${calcDetails}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            return { totalHours, otHours, holidayOT, extraOT, details };
+        }
+
+        function calculateHolidayHours(startTime, endTime) {
+            const start = new Date(`2000-01-01T${startTime}:00`);
+            let end = new Date(`2000-01-01T${endTime}:00`);
+            
+            // Handle overnight shifts
+            if (end <= start) {
+                end.setDate(end.getDate() + 1);
+            }
+            
+            // Determine shift type based on start time
+            const startHour = start.getHours();
+            const isNightShift = startHour >= 20 || startHour < 8;
+            
+            let regularPeriod = { hours: 0, totalHours: 0, breakHours: 0, period: '' };
+            let overtimePeriod = { hours: 0, totalHours: 0, breakHours: 0, period: '' };
+            let totalBreakHours = 0;
+            
+            if (isNightShift) {
+                // Night shift holiday calculation (20:00-05:00 + OT 05:30-08:00)
+                const nightShiftStart = new Date(`2000-01-01T20:00:00`);
+                let nightShiftEnd = new Date(`2000-01-01T05:00:00`);
+                nightShiftEnd.setDate(nightShiftEnd.getDate() + 1);
+                let nightOTStart = new Date(`2000-01-01T05:30:00`);
+                nightOTStart.setDate(nightOTStart.getDate() + 1);
+                let nightOTEnd = new Date(`2000-01-01T08:00:00`);
+                nightOTEnd.setDate(nightOTEnd.getDate() + 1);
+                
+                // Calculate regular night shift period (20:00-05:00)
+                const regStart = new Date(Math.max(start.getTime(), nightShiftStart.getTime()));
+                const regEnd = new Date(Math.min(end.getTime(), nightShiftEnd.getTime()));
+                
+                if (regEnd > regStart) {
+                    const regTotalMinutes = (regEnd - regStart) / (1000 * 60);
+                    regularPeriod.totalHours = regTotalMinutes / 60;
+                    
+                    // Deduct 45 minutes break for full shift
+                    if (regularPeriod.totalHours >= 8) {
+                        regularPeriod.breakHours = 0.75; // 45 minutes
+                        totalBreakHours += regularPeriod.breakHours;
+                    }
+                    
+                    regularPeriod.hours = regularPeriod.totalHours - regularPeriod.breakHours;
+                    regularPeriod.period = '20:00-05:00';
+                }
+                
+                // Calculate night OT period (05:30-08:00)
+                if (end > nightOTStart) {
+                    const otStart = new Date(Math.max(start.getTime(), nightOTStart.getTime()));
+                    const otEnd = new Date(Math.min(end.getTime(), nightOTEnd.getTime()));
+                    
+                    if (otEnd > otStart) {
+                        const otMinutes = (otEnd - otStart) / (1000 * 60);
+                        overtimePeriod.totalHours = otMinutes / 60;
+                        overtimePeriod.hours = overtimePeriod.totalHours; // No break in OT period
+                        overtimePeriod.period = '05:30-08:00';
+                    }
+                }
+                
+            } else {
+                // Morning shift holiday calculation (08:00-17:00 + OT 17:30-20:00)
+                const morningShiftStart = new Date(`2000-01-01T08:00:00`);
+                const morningShiftEnd = new Date(`2000-01-01T17:00:00`);
+                const morningOTStart = new Date(`2000-01-01T17:30:00`);
+                const morningOTEnd = new Date(`2000-01-01T20:00:00`);
+                
+                // Calculate regular morning shift period (08:00-17:00)
+                const regStart = new Date(Math.max(start.getTime(), morningShiftStart.getTime()));
+                const regEnd = new Date(Math.min(end.getTime(), morningShiftEnd.getTime()));
+                
+                if (regEnd > regStart) {
+                    const regTotalMinutes = (regEnd - regStart) / (1000 * 60);
+                    regularPeriod.totalHours = regTotalMinutes / 60;
+                    
+                    // Deduct 45 minutes break for full shift
+                    if (regularPeriod.totalHours >= 8) {
+                        regularPeriod.breakHours = 0.75; // 45 minutes
+                        totalBreakHours += regularPeriod.breakHours;
+                    }
+                    
+                    regularPeriod.hours = regularPeriod.totalHours - regularPeriod.breakHours;
+                    regularPeriod.period = '08:00-17:00';
+                }
+                
+                // Calculate morning OT period (17:30-20:00)
+                if (end > morningOTStart) {
+                    const otStart = new Date(Math.max(start.getTime(), morningOTStart.getTime()));
+                    const otEnd = new Date(Math.min(end.getTime(), morningOTEnd.getTime()));
+                    
+                    if (otEnd > otStart) {
+                        const otMinutes = (otEnd - otStart) / (1000 * 60);
+                        overtimePeriod.totalHours = otMinutes / 60;
+                        overtimePeriod.hours = overtimePeriod.totalHours; // No break in OT period
+                        overtimePeriod.period = '17:30-20:00';
+                    }
+                }
+            }
+            
+            const totalMinutes = (end - start) / (1000 * 60);
+            const workingHours = totalMinutes / 60;
+            
+            return {
+                workingHours,
+                breakHours: totalBreakHours,
+                regularPeriod,
+                overtimePeriod
+            };
+        }
+
+        function calculateRegularDayHours(startTime, endTime) {
+            const start = new Date(`2000-01-01T${startTime}:00`);
+            let end = new Date(`2000-01-01T${endTime}:00`);
+            
+            // Handle overnight shifts
+            if (end <= start) {
+                end.setDate(end.getDate() + 1);
+            }
+            
+            const totalMinutes = (end - start) / (1000 * 60);
+            const totalHours = totalMinutes / 60;
+            
+            // Define shift periods and OT periods
+            const morningShiftStart = new Date(`2000-01-01T08:00:00`);
+            const morningShiftEnd = new Date(`2000-01-01T17:00:00`);
+            const morningOTStart = new Date(`2000-01-01T17:30:00`);
+            const morningOTEnd = new Date(`2000-01-01T20:00:00`);
+            
+            const nightShiftStart = new Date(`2000-01-01T20:00:00`);
+            let nightShiftEnd = new Date(`2000-01-01T05:00:00`);
+            nightShiftEnd.setDate(nightShiftEnd.getDate() + 1);
+            let nightOTStart = new Date(`2000-01-01T05:30:00`);
+            nightOTStart.setDate(nightOTStart.getDate() + 1);
+            let nightOTEnd = new Date(`2000-01-01T08:00:00`);
+            nightOTEnd.setDate(nightOTEnd.getDate() + 1);
+            
+            let regularHours = 0;
+            let otHours = 0;
+            let details = '';
+            let shiftType = '';
+            
+            // Determine shift type based on start time
+            const startHour = start.getHours();
+            const isNightShift = startHour >= 20 || startHour < 8;
+            
+            if (isNightShift) {
+                // Night shift calculation (20:00-05:00 + OT 05:30-08:00)
+                shiftType = 'กะดึก';
+                
+                // Calculate regular night shift hours (20:00-05:00)
+                const nightRegStart = new Date(Math.max(start.getTime(), nightShiftStart.getTime()));
+                const nightRegEnd = new Date(Math.min(end.getTime(), nightShiftEnd.getTime()));
+                
+                if (nightRegEnd > nightRegStart) {
+                    const nightRegMinutes = (nightRegEnd - nightRegStart) / (1000 * 60);
+                    const nightRegHours = nightRegMinutes / 60;
+                    
+                    // Deduct 45 minutes break for full shift
+                    if (nightRegHours >= 8) {
+                        regularHours = 8.25; // 9 hours - 45 minutes break
+                    } else {
+                        regularHours = nightRegHours;
+                    }
+                }
+                
+                // Calculate night OT hours (05:30-08:00)
+                if (end > nightOTStart) {
+                    const nightOTActualStart = new Date(Math.max(start.getTime(), nightOTStart.getTime()));
+                    const nightOTActualEnd = new Date(Math.min(end.getTime(), nightOTEnd.getTime()));
+                    
+                    if (nightOTActualEnd > nightOTActualStart) {
+                        const nightOTMinutes = (nightOTActualEnd - nightOTActualStart) / (1000 * 60);
+                        otHours = nightOTMinutes / 60;
+                    }
+                }
+                
+                details = `
+                    <div class="text-sm space-y-2">
+                        <div class="font-semibold text-blue-700">กะดึก (20:00-05:00)</div>
+                        <div class="space-y-1">
+                            <div>เวลาทำงานทั้งหมด: ${totalHours.toFixed(2)} ชั่วโมง</div>
+                            <div>ชั่วโมงปกติ: ${regularHours.toFixed(2)} ชั่วโมง ${regularHours >= 8.25 ? '(หักเบรก 45 นาที)' : ''}</div>
+                            ${otHours > 0 ? `<div class="text-orange-600 font-semibold">ชั่วโมงโอที (05:30-08:00): ${otHours.toFixed(2)} ชั่วโมง</div>` : ''}
+                        </div>
+                    </div>
+                `;
+            } else {
+                // Morning shift calculation (08:00-17:00 + OT 17:30-20:00)
+                shiftType = 'กะเช้า';
+                
+                // Calculate regular morning shift hours (08:00-17:00)
+                const morningRegStart = new Date(Math.max(start.getTime(), morningShiftStart.getTime()));
+                const morningRegEnd = new Date(Math.min(end.getTime(), morningShiftEnd.getTime()));
+                
+                if (morningRegEnd > morningRegStart) {
+                    const morningRegMinutes = (morningRegEnd - morningRegStart) / (1000 * 60);
+                    const morningRegHours = morningRegMinutes / 60;
+                    
+                    // Deduct 45 minutes break for full shift
+                    if (morningRegHours >= 8) {
+                        regularHours = 8.25; // 9 hours - 45 minutes break
+                    } else {
+                        regularHours = morningRegHours;
+                    }
+                }
+                
+                // Calculate morning OT hours (17:30-20:00)
+                if (end > morningOTStart) {
+                    const morningOTActualStart = new Date(Math.max(start.getTime(), morningOTStart.getTime()));
+                    const morningOTActualEnd = new Date(Math.min(end.getTime(), morningOTEnd.getTime()));
+                    
+                    if (morningOTActualEnd > morningOTActualStart) {
+                        const morningOTMinutes = (morningOTActualEnd - morningOTActualStart) / (1000 * 60);
+                        otHours = morningOTMinutes / 60;
+                    }
+                }
+                
+                details = `
+                    <div class="text-sm space-y-2">
+                        <div class="font-semibold text-blue-700">กะเช้า (08:00-17:00)</div>
+                        <div class="space-y-1">
+                            <div>เวลาทำงานทั้งหมด: ${totalHours.toFixed(2)} ชั่วโมง</div>
+                            <div>ชั่วโมงปกติ: ${regularHours.toFixed(2)} ชั่วโมง ${regularHours >= 8.25 ? '(หักเบรก 45 นาที)' : ''}</div>
+                            ${otHours > 0 ? `<div class="text-orange-600 font-semibold">ชั่วโมงโอที (17:30-20:00): ${otHours.toFixed(2)} ชั่วโมง</div>` : ''}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            return { regularHours, otHours, details };
+        }
+
+        function calculateMonthlyOT(empId, month, year) {
+            return otRecords
+                .filter(record => {
+                    const recordDate = new Date(record.date);
+                    return record.empId === empId && 
+                           recordDate.getMonth() + 1 === month && 
+                           recordDate.getFullYear() === year;
+                })
+                .reduce((total, record) => total + (record.otHours || 0), 0);
+        }
+
+        // OT form submission
+        document.getElementById('ot-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            // Get form data
+            const method = document.querySelector('input[name="emp-select-method"]:checked').value;
+            const empId = method === 'dropdown' ? 
+                document.getElementById('employee-dropdown').value : 
+                document.getElementById('ot-emp-id').value;
+            const otDate = document.getElementById('ot-date').value;
+            const startTime = document.getElementById('ot-start-time').value;
+            const endTime = document.getElementById('ot-end-time').value;
+            
+            // Validate employee
+            const employee = employees.find(emp => emp.id === empId);
+            if (!employee) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'ไม่พบข้อมูลพนักงาน',
+                    text: 'กรุณาตรวจสอบรหัสพนักงานหรือลงทะเบียนพนักงานก่อน',
+                    confirmButtonText: 'ตกลง'
+                });
+                return;
+            }
+            
+            // Calculate working hours
+            const isHoliday = isDateHoliday(otDate);
+            const { totalHours, otHours, holidayOT, extraOT } = calculateWorkingHours(startTime, endTime, isHoliday);
+            
+            // Calculate monthly total
+            const recordDate = new Date(otDate);
+            const month = recordDate.getMonth() + 1;
+            const year = recordDate.getFullYear();
+            const currentMonthlyOT = calculateMonthlyOT(empId, month, year);
+            const newMonthlyTotal = currentMonthlyOT + otHours;
+            
+            // Show loading
+            Swal.fire({
+                title: 'กำลังบันทึกข้อมูล...',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+            
+            // Create OT record
+            const otRecord = {
+                id: Date.now().toString(),
+                empId: empId,
+                empName: employee.name,
+                department: employee.department,
+                date: otDate,
+                startTime: startTime,
+                endTime: endTime,
+                totalHours: totalHours,
+                otHours: otHours,
+                holidayOT: holidayOT || 0,
+                extraOT: extraOT || 0,
+                monthlyTotal: newMonthlyTotal,
+                details: isHoliday ? 'วันหยุด' : 'วันทำงานปกติ',
+                createdDate: new Date().toISOString()
+            };
+            
+            // Save to local storage
+            otRecords.push(otRecord);
+            localStorage.setItem('otRecords', JSON.stringify(otRecords));
+            
+            // Send to Google Sheets
+            const success = await sendToGoogleSheets('ot', otRecord);
+            
+            // Close loading and show result
+            Swal.close();
+            
+            if (success) {
+                let successMessage = `
+                    <div class="text-left">
+                        <p class="mb-2">บันทึกข้อมูลโอทีเรียบร้อยแล้ว</p>
+                        <div class="bg-blue-50 p-3 rounded-lg text-sm">
+                            <div><strong>พนักงาน:</strong> ${employee.name}</div>
+                            <div><strong>วันที่:</strong> ${new Date(otDate).toLocaleDateString('th-TH')}</div>
+                            <div><strong>เวลาทำงาน:</strong> ${startTime} - ${endTime}</div>
+                `;
+                
+                if (isHoliday && (holidayOT > 0 || extraOT > 0)) {
+                    successMessage += `
+                            <div class="mt-2 pt-2 border-t">
+                                <div class="text-red-600"><strong>โอทีวันหยุด:</strong> ${holidayOT.toFixed(2)} ชั่วโมง</div>
+                                <div class="text-orange-600"><strong>โอทีพิเศษ:</strong> ${extraOT.toFixed(2)} ชั่วโมง</div>
+                                <div class="text-purple-600 font-semibold"><strong>รวมโอที:</strong> ${otHours.toFixed(2)} ชั่วโมง</div>
+                            </div>
+                    `;
+                } else {
+                    successMessage += `
+                            <div class="text-orange-600"><strong>ชั่วโมงโอที:</strong> ${otHours.toFixed(2)} ชั่วโมง</div>
+                    `;
+                }
+                
+                successMessage += `
+                            <div class="text-blue-600 font-semibold mt-1"><strong>รวมโอทีเดือนนี้:</strong> ${newMonthlyTotal.toFixed(2)} ชั่วโมง</div>
+                        </div>
+                    </div>
+                `;
+                
+                Swal.fire({
+                    icon: 'success',
+                    title: 'บันทึกสำเร็จ!',
+                    html: successMessage,
+                    confirmButtonText: 'ตกลง',
+                    confirmButtonColor: '#10b981'
+                });
+            } else {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'บันทึกสำเร็จ',
+                    text: 'บันทึกข้อมูลโอทีเรียบร้อยแล้ว (บันทึกในเครื่อง)',
+                    confirmButtonText: 'ตกลง',
+                    confirmButtonColor: '#f59e0b'
+                });
+            }
+            
+            // Reset form
+            this.reset();
+            hideEmployeeInfo();
+            hideOTCalculation();
+            
+            // Set default date to today
+            document.getElementById('ot-date').value = new Date().toISOString().split('T')[0];
+        });
+
+        // Auto-load data from Google Sheets when entering data page
+        async function autoLoadDataFromGoogleSheets() {
+            const autoRefreshIndicator = document.getElementById('auto-refresh-indicator');
+            const lastUpdateTime = document.getElementById('last-update-time');
+            
+            // Show loading state
+            if (autoRefreshIndicator) {
+                autoRefreshIndicator.innerHTML = `
+                    <div class="flex items-center text-sm text-blue-600">
+                        <div class="loading-spinner mr-2"></div>
+                        <span>กำลังโหลดข้อมูล...</span>
+                    </div>
+                `;
+            }
+            
+            // Load local data first for immediate display
+            displayOTData(otRecords);
+            updateLastUpdateTime();
+            
+            // If no Google Sheets URL configured, use local data only
+            if (!adminSettings.gasUrl) {
+                if (autoRefreshIndicator) {
+                    autoRefreshIndicator.innerHTML = `
+                        <div class="flex items-center text-sm text-yellow-600">
+                            <div class="w-2 h-2 bg-yellow-500 rounded-full mr-2"></div>
+                            <span>ใช้ข้อมูลในเครื่อง</span>
+                        </div>
+                    `;
+                }
+                return;
+            }
+            
+            try {
+                // Fetch fresh data from Google Sheets
+                const response = await fetch(`${adminSettings.gasUrl}?action=ot`, {
+                    method: 'GET',
+                    mode: 'cors'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success && result.data) {
+                    // Check if there's new data
+                    const hasNewData = JSON.stringify(otRecords) !== JSON.stringify(result.data);
+                    
+                    if (hasNewData) {
+                        // Update with fresh data from Google Sheets
+                        otRecords = result.data;
+                        localStorage.setItem('otRecords', JSON.stringify(otRecords));
+                        
+                        // Refresh display with new data
+                        displayOTData(otRecords);
+                        updateLastUpdateTime();
+                        
+                        console.log(`Auto-loaded ${result.data.length} OT records from Google Sheets`);
+                        
+                        // Show success toast
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'อัปเดตข้อมูลแล้ว!',
+                            text: `โหลดข้อมูลโอที ${result.data.length} รายการจาก Google Sheets`,
+                            timer: 2000,
+                            showConfirmButton: false,
+                            toast: true,
+                            position: 'top-end'
+                        });
+                    }
+                    
+                    // Update status indicator
+                    if (autoRefreshIndicator) {
+                        autoRefreshIndicator.innerHTML = `
+                            <div class="flex items-center text-sm text-green-600">
+                                <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse mr-2"></div>
+                                <span>ซิงค์กับ Google Sheets</span>
+                            </div>
+                        `;
+                    }
+                    
+                } else {
+                    // Google Sheets returned no data, use local data
+                    if (autoRefreshIndicator) {
+                        autoRefreshIndicator.innerHTML = `
+                            <div class="flex items-center text-sm text-yellow-600">
+                                <div class="w-2 h-2 bg-yellow-500 rounded-full mr-2"></div>
+                                <span>ใช้ข้อมูลในเครื่อง</span>
+                            </div>
+                        `;
+                    }
+                    console.log('Using local data (Google Sheets returned no data)');
+                }
+                
+            } catch (error) {
+                console.error('Error auto-loading data:', error);
+                
+                // Fallback to local data
+                if (autoRefreshIndicator) {
+                    autoRefreshIndicator.innerHTML = `
+                        <div class="flex items-center text-sm text-red-600">
+                            <div class="w-2 h-2 bg-red-500 rounded-full mr-2"></div>
+                            <span>ไม่สามารถเชื่อมต่อได้</span>
+                        </div>
+                    `;
+                }
+            }
+        }
+
+        // Data display functions
+        function loadAllData() {
+            displayOTData(otRecords);
+            hideEmployeeOTSummary();
+            updateLastUpdateTime();
+        }
+
+        function filterData() {
+            const filterMonth = document.getElementById('filter-month').value;
+            const filterEmpId = document.getElementById('filter-emp-id').value;
+            
+            let filteredData = otRecords;
+            
+            if (filterMonth) {
+                filteredData = filteredData.filter(record => {
+                    const recordDate = new Date(record.date);
+                    return recordDate.getMonth() + 1 == filterMonth;
+                });
+            }
+            
+            if (filterEmpId) {
+                filteredData = filteredData.filter(record => 
+                    record.empId.includes(filterEmpId)
+                );
+                
+                // Show employee OT summary if filtering by employee ID
+                if (filterEmpId.length === 8) {
+                    showEmployeeOTSummary(filterEmpId, filteredData, filterMonth);
+                } else {
+                    hideEmployeeOTSummary();
+                }
+            } else {
+                hideEmployeeOTSummary();
+            }
+            
+            displayOTData(filteredData);
+        }
+
+        function showEmployeeOTSummary(empId, filteredData, filterMonth) {
+            // Find employee info
+            const employee = employees.find(emp => emp.id === empId);
+            if (!employee) {
+                hideEmployeeOTSummary();
+                return;
+            }
+            
+            // Calculate current month if no month filter
+            const currentDate = new Date();
+            const targetMonth = filterMonth ? parseInt(filterMonth) : currentDate.getMonth() + 1;
+            const targetYear = currentDate.getFullYear();
+            
+            // Get all records for this employee in the target month
+            const monthlyRecords = otRecords.filter(record => {
+                const recordDate = new Date(record.date);
+                return record.empId === empId && 
+                       recordDate.getMonth() + 1 === targetMonth && 
+                       recordDate.getFullYear() === targetYear;
+            });
+            
+            // Calculate OT totals
+            let totalHolidayOT = 0;
+            let totalExtraOT = 0;
+            let totalRegularOT = 0;
+            let workDays = monthlyRecords.length;
+            
+            monthlyRecords.forEach(record => {
+                const holidayOT = record.holidayOT || 0;
+                const extraOT = record.extraOT || 0;
+                const totalOT = record.otHours || 0;
+                const regularOT = totalOT - holidayOT - extraOT;
+                
+                totalHolidayOT += holidayOT;
+                totalExtraOT += extraOT;
+                totalRegularOT += Math.max(0, regularOT);
+            });
+            
+            const totalOT = totalHolidayOT + totalExtraOT + totalRegularOT;
+            
+            // Update summary display
+            document.getElementById('summary-emp-id').textContent = empId;
+            document.getElementById('summary-emp-name').textContent = employee.name;
+            document.getElementById('summary-emp-department').textContent = employee.department;
+            document.getElementById('summary-work-days').textContent = `${workDays} วัน`;
+            document.getElementById('summary-holiday-ot').textContent = `${totalHolidayOT.toFixed(1)} ชม.`;
+            document.getElementById('summary-extra-ot').textContent = `${totalExtraOT.toFixed(1)} ชม.`;
+            document.getElementById('summary-regular-ot').textContent = `${totalRegularOT.toFixed(1)} ชม.`;
+            document.getElementById('summary-total-ot').textContent = `${totalOT.toFixed(1)} ชม.`;
+            
+            // Show appropriate status
+            updateOTStatus(totalOT);
+            
+            // Show summary panel
+            document.getElementById('employee-ot-summary').classList.remove('hidden');
+        }
+
+        function hideEmployeeOTSummary() {
+            document.getElementById('employee-ot-summary').classList.add('hidden');
+        }
+
+        function updateOTStatus(totalOT) {
+            const maxOT = 80;
+            const warningThreshold = 70;
+            
+            // Hide all status panels first
+            document.getElementById('ot-status-normal').classList.add('hidden');
+            document.getElementById('ot-status-warning').classList.add('hidden');
+            document.getElementById('ot-status-danger').classList.add('hidden');
+            
+            if (totalOT > maxOT) {
+                // Exceeded limit
+                const exceededHours = totalOT - maxOT;
+                document.getElementById('exceeded-hours').textContent = exceededHours.toFixed(1);
+                document.getElementById('ot-status-danger').classList.remove('hidden');
+            } else if (totalOT > warningThreshold) {
+                // Warning zone
+                const remainingHours = maxOT - totalOT;
+                document.getElementById('remaining-hours-warning').textContent = remainingHours.toFixed(1);
+                document.getElementById('ot-status-warning').classList.remove('hidden');
+            } else {
+                // Normal status
+                const remainingHours = maxOT - totalOT;
+                document.getElementById('remaining-hours').textContent = remainingHours.toFixed(1);
+                document.getElementById('ot-status-normal').classList.remove('hidden');
+            }
+        }
+
+        function displayOTData(data) {
+            const tbody = document.getElementById('data-table-body');
+            
+            // Update calculation summary
+            updateCalculationSummary(data);
+            
+            if (data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="12" class="text-center py-4 text-gray-500">ไม่มีข้อมูล</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = data.map(record => {
+                const recordDate = new Date(record.date);
+                const isHoliday = isDateHoliday(record.date);
+                const statusClass = isHoliday ? 'text-red-600 font-semibold' : 'text-green-600';
+                const statusText = isHoliday ? 'วันหยุด' : 'วันทำงาน';
+                
+                // Handle legacy records that don't have holidayOT/extraOT
+                const holidayOT = record.holidayOT || 0;
+                const extraOT = record.extraOT || 0;
+                const totalOT = record.otHours || (holidayOT + extraOT);
+                
+                // Format time display - handle both string format and Google Sheets Date format
+                const startTimeDisplay = formatTimeDisplay(record.startTime);
+                const endTimeDisplay = formatTimeDisplay(record.endTime);
+                
+                // Handle totalHours display
+                const totalHoursDisplay = record.totalHours ? record.totalHours.toFixed(2) : '0.00';
+                const monthlyTotalDisplay = record.monthlyTotal ? record.monthlyTotal.toFixed(2) : '0.00';
+                
+                return `
+                    <tr class="hover:bg-gray-50">
+                        <td class="border border-gray-300 px-4 py-2">${record.empId}</td>
+                        <td class="border border-gray-300 px-4 py-2">${record.empName}</td>
+                        <td class="border border-gray-300 px-4 py-2">${record.department}</td>
+                        <td class="border border-gray-300 px-4 py-2">${recordDate.toLocaleDateString('th-TH')}</td>
+                        <td class="border border-gray-300 px-4 py-2 font-mono text-center">${startTimeDisplay}</td>
+                        <td class="border border-gray-300 px-4 py-2 font-mono text-center">${endTimeDisplay}</td>
+                        <td class="border border-gray-300 px-4 py-2 text-center">${totalHoursDisplay}</td>
+                        <td class="border border-gray-300 px-4 py-2 font-semibold text-red-600 text-center">${holidayOT.toFixed(2)}</td>
+                        <td class="border border-gray-300 px-4 py-2 font-semibold text-orange-600 text-center">${extraOT.toFixed(2)}</td>
+                        <td class="border border-gray-300 px-4 py-2 font-semibold text-purple-600 text-center">${totalOT.toFixed(2)}</td>
+                        <td class="border border-gray-300 px-4 py-2 font-semibold text-blue-600 text-center">${monthlyTotalDisplay}</td>
+                        <td class="border border-gray-300 px-4 py-2 ${statusClass} text-center">${statusText}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Helper function to format time display from various formats
+        function formatTimeDisplay(timeValue) {
+            if (!timeValue) return '-';
+            
+            // If it's already in HH:MM format, return as is
+            if (typeof timeValue === 'string' && timeValue.match(/^\d{2}:\d{2}$/)) {
+                return timeValue;
+            }
+            
+            // If it's a Google Sheets date string (contains 'T' and 'Z')
+            if (typeof timeValue === 'string' && timeValue.includes('T')) {
+                try {
+                    const date = new Date(timeValue);
+                    // Extract hours and minutes, format as HH:MM
+                    const hours = date.getUTCHours().toString().padStart(2, '0');
+                    const minutes = date.getUTCMinutes().toString().padStart(2, '0');
+                    return `${hours}:${minutes}`;
+                } catch (error) {
+                    console.error('Error parsing time:', timeValue, error);
+                    return timeValue.toString();
+                }
+            }
+            
+            // If it's a Date object
+            if (timeValue instanceof Date) {
+                const hours = timeValue.getHours().toString().padStart(2, '0');
+                const minutes = timeValue.getMinutes().toString().padStart(2, '0');
+                return `${hours}:${minutes}`;
+            }
+            
+            // Fallback - return as string
+            return timeValue.toString();
+        }
+
+        function updateLastUpdateTime() {
+            const now = new Date();
+            document.getElementById('last-update-time').textContent = now.toLocaleTimeString('th-TH');
+            
+            // Also update summary last update time
+            const summaryLastUpdate = document.getElementById('summary-last-update');
+            if (summaryLastUpdate) {
+                summaryLastUpdate.textContent = now.toLocaleTimeString('th-TH');
+            }
+        }
+
+        function updateCalculationSummary(data) {
+            const currentDate = new Date();
+            const currentMonth = currentDate.getMonth() + 1;
+            const currentYear = currentDate.getFullYear();
+            
+            // Get filter values to determine display period
+            const filterMonth = document.getElementById('filter-month').value;
+            const filterEmpId = document.getElementById('filter-emp-id').value;
+            
+            // Basic calculations
+            const totalRecords = data.length;
+            let totalOTHours = 0;
+            let totalHolidayOT = 0;
+            let totalExtraOT = 0;
+            let totalRegularOT = 0;
+            
+            // Employee tracking
+            const employeeOTMap = new Map();
+            const uniqueEmployees = new Set();
+            
+            // Process each record
+            data.forEach(record => {
+                const holidayOT = record.holidayOT || 0;
+                const extraOT = record.extraOT || 0;
+                const totalOT = record.otHours || 0;
+                const regularOT = Math.max(0, totalOT - holidayOT - extraOT);
+                
+                totalOTHours += totalOT;
+                totalHolidayOT += holidayOT;
+                totalExtraOT += extraOT;
+                totalRegularOT += regularOT;
+                
+                uniqueEmployees.add(record.empId);
+                
+                // Track employee monthly totals
+                if (!employeeOTMap.has(record.empId)) {
+                    employeeOTMap.set(record.empId, 0);
+                }
+                employeeOTMap.set(record.empId, employeeOTMap.get(record.empId) + totalOT);
+            });
+            
+            // Calculate monthly OT (current month only)
+            let monthlyOTHours = 0;
+            if (filterMonth) {
+                // If filtering by specific month, use that data
+                monthlyOTHours = totalOTHours;
+            } else {
+                // Calculate current month OT from all data
+                monthlyOTHours = otRecords
+                    .filter(record => {
+                        const recordDate = new Date(record.date);
+                        return recordDate.getMonth() + 1 === currentMonth && 
+                               recordDate.getFullYear() === currentYear;
+                    })
+                    .reduce((total, record) => total + (record.otHours || 0), 0);
+            }
+            
+            // Calculate employee statistics for current month or filtered data
+            let employeeMonthlyOT = new Map();
+            
+            if (filterMonth) {
+                // Use filtered data
+                data.forEach(record => {
+                    const empId = record.empId;
+                    const otHours = record.otHours || 0;
+                    
+                    if (!employeeMonthlyOT.has(empId)) {
+                        employeeMonthlyOT.set(empId, 0);
+                    }
+                    employeeMonthlyOT.set(empId, employeeMonthlyOT.get(empId) + otHours);
+                });
+            } else {
+                // Calculate for current month
+                otRecords
+                    .filter(record => {
+                        const recordDate = new Date(record.date);
+                        return recordDate.getMonth() + 1 === currentMonth && 
+                               recordDate.getFullYear() === currentYear;
+                    })
+                    .forEach(record => {
+                        const empId = record.empId;
+                        const otHours = record.otHours || 0;
+                        
+                        if (!employeeMonthlyOT.has(empId)) {
+                            employeeMonthlyOT.set(empId, 0);
+                        }
+                        employeeMonthlyOT.set(empId, employeeMonthlyOT.get(empId) + otHours);
+                    });
+            }
+            
+            // Count employees by status
+            let warningEmployees = 0;
+            let dangerEmployees = 0;
+            
+            employeeMonthlyOT.forEach(otHours => {
+                if (otHours > 80) {
+                    dangerEmployees++;
+                } else if (otHours > 70) {
+                    warningEmployees++;
+                }
+            });
+            
+            // Calculate average OT per employee
+            const activeEmployees = uniqueEmployees.size;
+            const averageOT = activeEmployees > 0 ? totalOTHours / activeEmployees : 0;
+            
+            // Determine display period text
+            let displayPeriod = 'ทั้งหมด';
+            if (filterMonth) {
+                const monthNames = ['', 'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 
+                                   'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+                displayPeriod = monthNames[parseInt(filterMonth)];
+            }
+            if (filterEmpId) {
+                displayPeriod += ` (รหัส: ${filterEmpId})`;
+            }
+            
+            // Update UI elements
+            document.getElementById('total-records').textContent = totalRecords;
+            document.getElementById('total-ot-hours').textContent = totalOTHours.toFixed(1);
+            document.getElementById('monthly-ot-hours').textContent = monthlyOTHours.toFixed(1);
+            document.getElementById('exceeding-employees').textContent = dangerEmployees;
+            
+            document.getElementById('total-holiday-ot').textContent = `${totalHolidayOT.toFixed(1)} ชม.`;
+            document.getElementById('total-extra-ot').textContent = `${totalExtraOT.toFixed(1)} ชม.`;
+            document.getElementById('total-regular-ot').textContent = `${totalRegularOT.toFixed(1)} ชม.`;
+            
+            document.getElementById('active-employees').textContent = `${activeEmployees} คน`;
+            document.getElementById('warning-employees').textContent = `${warningEmployees} คน`;
+            document.getElementById('danger-employees').textContent = `${dangerEmployees} คน`;
+            
+            document.getElementById('display-period').textContent = displayPeriod;
+            document.getElementById('average-ot').textContent = `${averageOT.toFixed(1)} ชม.`;
+            
+            // Update last update time
+            updateLastUpdateTime();
+        }
+
+        // Google Sheets integration
+        async function sendToGoogleSheets(action, data) {
+            if (!adminSettings.gasUrl) {
+                console.log('No Google Apps Script URL configured');
+                return false;
+            }
+            
+            try {
+                const response = await fetch(adminSettings.gasUrl, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        action: action,
+                        data: data
+                    })
+                });
+                
+                console.log('Data sent to Google Sheets successfully');
+                return true;
+            } catch (error) {
+                console.error('Error sending to Google Sheets:', error);
+                return false;
+            }
+        }
+
+        async function syncWithGoogleSheets() {
+            if (!adminSettings.gasUrl) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'ไม่พบการตั้งค่า',
+                    text: 'กรุณาตั้งค่า Google Apps Script URL ก่อน',
+                    confirmButtonText: 'ตกลง'
+                });
+                return;
+            }
+            
+            try {
+                Swal.fire({
+                    title: 'กำลังซิงค์ข้อมูล...',
+                    text: 'กรุณารอสักครู่',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+                
+                // Sync OT records
+                const otResponse = await fetch(`${adminSettings.gasUrl}?action=ot`);
+                const otResult = await otResponse.json();
+                
+                if (otResult.success && otResult.data) {
+                    otRecords = otResult.data;
+                    localStorage.setItem('otRecords', JSON.stringify(otRecords));
+                }
+                
+                // Sync employees
+                const empResponse = await fetch(`${adminSettings.gasUrl}?action=getAllEmployees`);
+                const empResult = await empResponse.json();
+                
+                if (empResult.success && empResult.employees) {
+                    employees = empResult.employees;
+                    localStorage.setItem('employees', JSON.stringify(employees));
+                    loadEmployeeDropdown();
+                }
+                
+                Swal.close();
+                
+                Swal.fire({
+                    icon: 'success',
+                    title: 'ซิงค์สำเร็จ!',
+                    text: `ซิงค์ข้อมูลจาก Google Sheets เรียบร้อยแล้ว`,
+                    confirmButtonText: 'ตกลง',
+                    confirmButtonColor: '#10b981'
+                });
+                
+                // Refresh data display
+                loadAllData();
+                
+            } catch (error) {
+                console.error('Sync error:', error);
+                Swal.close();
+                
+                Swal.fire({
+                    icon: 'error',
+                    title: 'เกิดข้อผิดพลาด',
+                    text: 'ไม่สามารถซิงค์ข้อมูลได้',
+                    confirmButtonText: 'ตกลง'
+                });
+            }
+        }
+
+        async function autoSyncWithGoogleSheets() {
+            if (!adminSettings.gasUrl || !isDataPageVisible) return;
+            
+            try {
+                // Silent sync - no UI feedback
+                const response = await fetch(`${adminSettings.gasUrl}?action=ot`, {
+                    method: 'GET',
+                    mode: 'cors'
+                });
+                const result = await response.json();
+                
+                if (result.success && result.data) {
+                    // Check for actual data changes, not just length
+                    const hasNewData = JSON.stringify(otRecords) !== JSON.stringify(result.data);
+                    
+                    if (hasNewData) {
+                        otRecords = result.data;
+                        localStorage.setItem('otRecords', JSON.stringify(otRecords));
+                        displayOTData(otRecords);
+                        updateLastUpdateTime();
+                        
+                        // Update status indicator
+                        const autoRefreshIndicator = document.getElementById('auto-refresh-indicator');
+                        if (autoRefreshIndicator) {
+                            autoRefreshIndicator.innerHTML = `
+                                <div class="flex items-center text-sm text-green-600">
+                                    <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse mr-2"></div>
+                                    <span>อัปเดตอัตโนมัติ</span>
+                                </div>
+                            `;
+                        }
+                        
+                        console.log('Auto-sync: New data detected and updated');
+                    }
+                }
+            } catch (error) {
+                console.error('Auto-sync error:', error);
+                
+                // Update status indicator on error
+                const autoRefreshIndicator = document.getElementById('auto-refresh-indicator');
+                if (autoRefreshIndicator) {
+                    autoRefreshIndicator.innerHTML = `
+                        <div class="flex items-center text-sm text-red-600">
+                            <div class="w-2 h-2 bg-red-500 rounded-full mr-2"></div>
+                            <span>ไม่สามารถเชื่อมต่อได้</span>
+                        </div>
+                    `;
+                }
+            }
+        }
+    </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9737ebb801367b70',t:'MTc1NTkyMzkxMC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
 
