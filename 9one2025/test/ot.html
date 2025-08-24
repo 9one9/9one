@@ -2175,8 +2175,8 @@ function getEmployeeOT(empId, month, year) {
         }
 
         function calculateWorkingHours(startTime, endTime, isHoliday) {
-            const start = new Date(`2000-01-01T${startTime}:00`);
-            let end = new Date(`2000-01-01T${endTime}:00`);
+            const start = new Date(`2000-01-01T${startTime}`);
+            let end = new Date(`2000-01-01T${endTime}`);
             
             // Handle overnight shifts
             if (end <= start) {
